@@ -20,7 +20,7 @@ export class SessionManager {
   }
 
   async joinSession(accessCode: string): Promise<SessionInterface> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const onSessionJoined = ({
         sessionClient,
         session,
@@ -36,11 +36,15 @@ export class SessionManager {
       webSocketClient.onType(SessionTypeEnum.SESSION_JOINED, onSessionJoined);
 
       webSocketClient.send(SessionTypeEnum.JOIN_SESSION, { accessCode });
+
+      setTimeout(() => {
+        reject(new Error('Session join timeout'));
+      }, 5000);
     });
   }
 
   async createSession(): Promise<SessionInterface> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const onSessionCreated = ({
         sessionClient,
         session,
@@ -56,6 +60,10 @@ export class SessionManager {
       webSocketClient.onType(SessionTypeEnum.SESSION_CREATED, onSessionCreated);
 
       webSocketClient.send(SessionTypeEnum.CREATE_SESSION);
+
+      setTimeout(() => {
+        reject(new Error('Session create timeout'));
+      }, 5000);
     });
   }
 }
