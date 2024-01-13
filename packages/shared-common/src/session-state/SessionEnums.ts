@@ -1,5 +1,5 @@
+import { SessionInterface } from './Session';
 import { SessionClientInterface } from './SessionClient';
-import { SessionStateInterface } from './SessionState';
 
 export enum SessionTypeEnum {
   CREATE_SESSION = 'create-session',
@@ -15,10 +15,10 @@ export type SessionTypePayloadMap = {
   };
   [SessionTypeEnum.SESSION_CREATED]: {
     sessionClient: SessionClientInterface;
-    sessionState: SessionStateInterface;
+    session: SessionInterface;
   };
   [SessionTypeEnum.SESSION_JOINED]: {
     sessionClient: SessionClientInterface;
-    sessionState: SessionStateInterface;
+    session: SessionInterface;
   };
 };

@@ -1,6 +1,6 @@
 import { SessionClientInterface } from './SessionClient';
 
-export interface SessionStateInterface<TGameState = unknown> {
+export interface SessionInterface<TGameState = unknown> {
   id: string;
   accessCode: string;
   clients: SessionClientInterface[];

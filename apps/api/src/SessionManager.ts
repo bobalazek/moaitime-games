@@ -2,7 +2,7 @@ import {
   DevicePlatformEnum,
   DeviceTypeEnum,
   SessionClientInterface,
-  SessionStateInterface,
+  SessionInterface,
   SessionTypeEnum,
 } from '@moaitime-games/shared-common';
 
@@ -12,7 +12,7 @@ import { WebSocketManager, webSocketManager } from './WebSocketManager';
 export class SessionManager {
   private _sessionClientMap: Map<string, SessionClientInterface> = new Map();
   private _webSocketClientToSessionClientMap: Map<string, string> = new Map();
-  private _sessionMap: Map<string, SessionStateInterface> = new Map();
+  private _sessionMap: Map<string, SessionInterface> = new Map();
 
   constructor(private _webSocketManager: WebSocketManager) {}
 
@@ -42,34 +42,31 @@ export class SessionManager {
 
   // Events
   onPing(webSocketClientId: string) {
-    const now = Date.now();
-
     const sessionClient = this.getSessionClient(webSocketClientId);
     if (!sessionClient) {
       return;
     }
 
-    sessionClient.lastPingAt = now;
+    sessionClient.lastPingAt = Date.now();
   }
 
   onCreateSession(webSocketClientId: string) {
     const sessionClient = this.createSessionClient(webSocketClientId);
-    const sessionState = this.createSession(sessionClient);
+    const session = this.createSession(sessionClient);
 
     this._webSocketManager.sendToWebSocketClient(
       webSocketClientId,
       SessionTypeEnum.SESSION_CREATED,
       {
         sessionClient,
-        sessionState,
+        session,
       }
     );
   }
 
-  // Helpers
+  // Session Client
   createSessionClient(webSocketClientId: string): SessionClientInterface {
     const id = generateRandomHash(8);
-
     const now = Date.now();
 
     const sessionClient: SessionClientInterface = {
@@ -98,23 +95,24 @@ export class SessionManager {
     return this._sessionClientMap.get(sessionClientId) ?? null;
   }
 
-  createSession(sessionClient: SessionClientInterface): SessionStateInterface {
+  // Session
+  createSession(sessionClient: SessionClientInterface): SessionInterface {
     const id = generateRandomHash(8);
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
 
-    const sessionState: SessionStateInterface = {
+    const session: SessionInterface = {
       id,
       accessCode,
       clients: [sessionClient],
       createdAt: Date.now(),
     };
 
-    this._sessionMap.set(id, sessionState);
+    this._sessionMap.set(id, session);
 
-    return sessionState;
+    return session;
   }
 
-  getSessionState(id: string): SessionStateInterface | null {
+  getSession(id: string): SessionInterface | null {
     return this._sessionMap.get(id) ?? null;
   }
 }
