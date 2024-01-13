@@ -1,7 +1,10 @@
 import cors from 'cors';
-import express from 'express';
+import express, { Request } from 'express';
 import expressWs from 'express-ws';
 import { WebSocket } from 'ws';
+
+import { sessionManager } from './SessionManager';
+import { webSocketManager } from './WebSocketManager';
 
 export async function bootstrap(port?: number) {
   if (!port) {
@@ -20,12 +23,8 @@ export async function bootstrap(port?: number) {
     res.json({ hello: 'world' });
   });
 
-  app.ws('/ws', (ws: WebSocket, req) => {
-    console.log(req);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ws.on('message', (msg: any) => {
-      console.log('Message received: ', msg);
-    });
+  app.ws('/ws', (ws: WebSocket, req: Request) => {
+    webSocketManager.initWebSocketConnection(ws, req, sessionManager);
   });
 
   // Listen

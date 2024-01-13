@@ -19,7 +19,8 @@ export function CreateSessionView() {
 
     (async () => {
       try {
-        await sessionManager.createSession();
+        const createdSessionState = await sessionManager.createSession();
+        setSessionState(createdSessionState);
       } catch (error: unknown) {
         setError(error instanceof Error ? error.message : 'Unknown error');
       } finally {

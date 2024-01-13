@@ -45,6 +45,30 @@ export class WebSocketClient {
     this._listeners.push(listener);
   }
 
+  public off(listener: (data: unknown) => void): void {
+    this._listeners = this._listeners.filter((l) => l !== listener);
+  }
+
+  public onType<T>(type: string, listener: (payload: T) => void): void {
+    this.on((message) => {
+      const { type: messageType, payload } = JSON.parse(message as string);
+
+      if (messageType === type) {
+        listener(payload);
+      }
+    });
+  }
+
+  public offType<T>(type: string, listener: (payload: T) => void): void {
+    this.off((message) => {
+      const { type: messageType, payload } = JSON.parse(message as string);
+
+      if (messageType === type) {
+        listener(payload);
+      }
+    });
+  }
+
   private async _createWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       const websocket = new WebSocket(WS_URL);
