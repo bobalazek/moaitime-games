@@ -1,0 +1,4 @@
+{
+  "extends": "@moaitime-games/tsconfig-config/tsconfig.backend.json",
+  "include": ["src/**/*"]
+}

@@ -1,6 +1,3 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "preserveSymlinks": true
-  }
+  "extends": "./tsconfig.base.json"
 }
