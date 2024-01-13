@@ -1,0 +1,8 @@
+{
+  "name": "@moaitime-games/tailwind-config",
+  "version": "0.0.0",
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}

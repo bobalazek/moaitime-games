@@ -1,0 +1,38 @@
+{
+  "name": "@moaitime-games/root",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "configs/*"
+  ],
+  "scripts": {
+    "build": "turbo build --no-daemon",
+    "clean": "turbo clean --no-daemon --parallel && yarn dlx rimraf --glob node_modules",
+    "dev": "cross-env NODE_ENV=development turbo dev --no-daemon --concurrency=50",
+    "format": "prettier --write --no-error-on-unmatched-pattern \"./{apps,packages}/**/*.{ts,tsx}\" \"./**/*.json\"",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern \"./{apps,packages}/**/*.{ts,tsx}\" \"./**/*.json\"",
+    "lint": "turbo lint --no-daemon",
+    "prepare": "husky install",
+    "serve": "turbo serve --no-daemon",
+    "test": "cross-env NODE_ENV=test turbo test --no-daemon --concurrency=1",
+    "test:watch": "cross-env NODE_ENV=test turbo test:watch --no-daemon",
+    "turbo:clean": "pnpx turbo daemon clean"
+  },
+  "devDependencies": {
+    "@moaitime-games/eslint-config": "*",
+    "@moaitime-games/prettier-config": "*",
+    "@moaitime-games/tsconfig-config": "*",
+    "@types/node": "^20.11.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.56.0",
+    "husky": "^8.0.3",
+    "prettier": "^3.1.1",
+    "turbo": "^1.11.3"
+  },
+  "packageManager": "yarn@4.0.2",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

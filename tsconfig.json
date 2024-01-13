@@ -1,0 +1,3 @@
+{
+  "extends": "@moaitime-games/tsconfig-config/tsconfig.base.json"
+}

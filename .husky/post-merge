@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+yarn install
+
+# If yarn.lock was changed as a result, revert those changes
+if git diff --exit-code yarn.lock >/dev/null; then
+    echo "yarn.lock unchanged"
+else
+    echo "Reverting changes to yarn.lock"
+    git checkout yarn.lock
+fi
