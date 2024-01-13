@@ -38,7 +38,10 @@ export class WebSocketClient {
 
   public async send<T>(type: string, payload?: T) {
     const client = await this.getClient();
-    client.send(JSON.stringify({ type, payload }));
+
+    const clientTime = Date.now();
+
+    client.send(JSON.stringify({ type, payload, clientTime }));
   }
 
   public on(listener: (data: unknown) => void): void {

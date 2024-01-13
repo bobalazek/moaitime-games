@@ -11,12 +11,17 @@ import { WebSocketManager, webSocketManager } from './WebSocketManager';
 
 export class SessionManager {
   private _sessionClientMap: Map<string, SessionClientInterface> = new Map();
+
   private _webSocketClientToSessionClientMap: Map<string, string> = new Map();
+
   private _sessionMap: Map<string, SessionInterface> = new Map();
+  private _sessionAccessCodeMap: Map<string, string> = new Map();
 
-  constructor(private _webSocketManager: WebSocketManager) {}
+  constructor(private _webSocketManager: WebSocketManager) {
+    // TODO: dispose sessions with no clients
+  }
 
-  // Main Events
+  // Events
   onMessage(webSocketClientId: string, message: string) {
     const data = JSON.parse(message);
 
@@ -40,7 +45,7 @@ export class SessionManager {
     sessionClient.disconnectedAt = Date.now();
   }
 
-  // Events
+  // Sub-Events
   onPing(webSocketClientId: string) {
     const sessionClient = this.getSessionClient(webSocketClientId);
     if (!sessionClient) {
@@ -100,6 +105,10 @@ export class SessionManager {
     const id = generateRandomHash(8);
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
 
+    if (this._sessionAccessCodeMap.has(accessCode)) {
+      throw new Error('Access code already in use');
+    }
+
     const session: SessionInterface = {
       id,
       accessCode,
@@ -108,12 +117,22 @@ export class SessionManager {
     };
 
     this._sessionMap.set(id, session);
+    this._sessionAccessCodeMap.set(accessCode, id);
 
     return session;
   }
 
   getSession(id: string): SessionInterface | null {
     return this._sessionMap.get(id) ?? null;
+  }
+
+  getSessionByAccessCode(accessCode: string): SessionInterface | null {
+    const sessionId = this._sessionAccessCodeMap.get(accessCode);
+    if (!sessionId) {
+      return null;
+    }
+
+    return this.getSession(sessionId);
   }
 }
 

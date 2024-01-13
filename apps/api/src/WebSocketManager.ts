@@ -8,26 +8,32 @@ import { SessionManager } from './SessionManager';
 export class WebSocketManager {
   private _webSocketClientMap: Map<string, WebSocket> = new Map();
 
-  initWebSocketConnection(ws: WebSocket, req: Request, sessionManager: SessionManager) {
-    const webSocketClientId = req.headers['sec-websocket-key'] as string;
+  addWebSocketConnection(webSocket: WebSocket, request: Request, sessionManager: SessionManager) {
+    const webSocketClientId = request.headers['sec-websocket-key'] as string;
+    if (!webSocketClientId) {
+      console.log('[API] ❌ No client id');
+      return;
+    }
 
-    this.setWebSocketClient(webSocketClientId, ws);
+    this.setWebSocketClient(webSocketClientId, webSocket);
 
     console.log(`[API] ✅ Client ${webSocketClientId} connected`);
 
-    ws.on('message', (message: string) => {
+    webSocket.on('message', (message: string) => {
       console.log(`[API] 📨 Received: ${message} from ${webSocketClientId}`);
 
       sessionManager.onMessage(webSocketClientId, message);
     });
 
-    ws.on('error', (error: Error) => {
+    webSocket.on('error', (error: Error) => {
       console.log(`[API] ❌ Client ${webSocketClientId} errored: ${error}`);
 
       sessionManager.onError(webSocketClientId, error);
+
+      this.deleteWebSocketClient(webSocketClientId);
     });
 
-    ws.on('close', () => {
+    webSocket.on('close', () => {
       console.log(`[API] ❌ Client ${webSocketClientId} disconnected`);
 
       sessionManager.onClose(webSocketClientId);

@@ -2,8 +2,10 @@ import { SessionInterface } from './Session';
 import { SessionClientInterface } from './SessionClient';
 
 export enum SessionTypeEnum {
+  // Requests
   CREATE_SESSION = 'create-session',
   JOIN_SESSION = 'join-session',
+  // Responses
   SESSION_CREATED = 'session-created',
   SESSION_JOINED = 'session-joined',
 }

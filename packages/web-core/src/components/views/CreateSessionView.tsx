@@ -63,18 +63,20 @@ export function CreateSessionView() {
           Tell your mates to go to <b className="text-emerald-400">{WEB_URL}</b> and enter the
           following code
         </div>
-        <div className="mb-8 text-5xl font-bold text-emerald-400">{accessCode}</div>
+        <div className="mb-8 text-8xl font-bold text-emerald-400">{accessCode}</div>
         {session.clients.length === 0 && (
           <div className="mb-8 text-2xl font-bold">Waiting for players to join ...</div>
         )}
         {session.clients.length > 0 && (
           <div>
-            <div className="mb-8 text-2xl font-bold">Joined:</div>
-            <ul className="text-2xl">
+            <div className="mb-6 text-2xl font-bold">Joined</div>
+            <div className="flex items-center justify-center text-2xl">
               {session.clients.map((client) => (
-                <li key={client.id}>{client.displayName}</li>
+                <li key={client.id} className="flex rounded-full bg-slate-600 p-8">
+                  {client.displayName}
+                </li>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>

@@ -23,8 +23,8 @@ export async function bootstrap(port?: number) {
     res.json({ hello: 'world' });
   });
 
-  app.ws('/ws', (ws: WebSocket, req: Request) => {
-    webSocketManager.initWebSocketConnection(ws, req, sessionManager);
+  app.ws('/ws', (webSocket: WebSocket, request: Request) => {
+    webSocketManager.addWebSocketConnection(webSocket, request, sessionManager);
   });
 
   // Listen
