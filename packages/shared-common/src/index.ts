@@ -4,6 +4,6 @@ export * from './core/DeviceTypeEnum';
 export * from './core/DevicePlatformEnum';
 
 // Session
-export * from './session-state/Session';
-export * from './session-state/SessionEnums';
-export * from './session-state/SessionClient';
+export * from './session/Session';
+export * from './session/SessionEnums';
+export * from './session/SessionClient';
