@@ -1,43 +1,31 @@
-import {
-  DevicePlatformEnum,
-  DeviceTypeEnum,
-  SessionClientInterface,
-  SessionInterface,
-  SessionTypeEnum,
-} from '@moaitime-games/shared-common';
+import { SessionClientInterface } from '@moaitime-games/shared-common';
 
 import { generateRandomHash } from './Helpers';
-import { WebSocketManager, webSocketManager } from './WebSocketManager';
+import { Session } from './Session';
 
 export class SessionManager {
   private _sessionClientMap: Map<string, SessionClientInterface> = new Map();
 
   private _webSocketClientToSessionClientMap: Map<string, string> = new Map();
 
-  private _sessionMap: Map<string, SessionInterface> = new Map();
+  private _sessionMap: Map<string, Session> = new Map();
   private _sessionAccessCodeMap: Map<string, string> = new Map();
 
-  constructor(private _webSocketManager: WebSocketManager) {
-    // TODO: dispose sessions with no clients
-  }
-
   // Events
-  onMessage(webSocketClientId: string, message: string) {
+  onMessage(webSocketToken: string, message: string) {
     const data = JSON.parse(message);
 
     if (data.type === 'ping') {
-      this.onPing(webSocketClientId);
-    } else if (data.type === SessionTypeEnum.CREATE_SESSION) {
-      this.onCreateSession(webSocketClientId);
+      this.onPing(webSocketToken);
     }
   }
 
-  onError(webSocketClientId: string, error: Error) {
+  onError(webSocketToken: string, error: Error) {
     // TODO
   }
 
-  onClose(webSocketClientId: string) {
-    const sessionClient = this.getSessionClient(webSocketClientId);
+  onClose(webSocketToken: string) {
+    const sessionClient = this.getSessionClient(webSocketToken);
     if (!sessionClient) {
       return;
     }
@@ -46,8 +34,8 @@ export class SessionManager {
   }
 
   // Sub-Events
-  onPing(webSocketClientId: string) {
-    const sessionClient = this.getSessionClient(webSocketClientId);
+  onPing(webSocketToken: string) {
+    const sessionClient = this.getSessionClient(webSocketToken);
     if (!sessionClient) {
       return;
     }
@@ -55,66 +43,19 @@ export class SessionManager {
     sessionClient.lastPingAt = Date.now();
   }
 
-  onCreateSession(webSocketClientId: string) {
-    const sessionClient = this.createSessionClient(webSocketClientId);
-    const session = this.createSession(sessionClient);
-
-    this._webSocketManager.sendToWebSocketClient(
-      webSocketClientId,
-      SessionTypeEnum.SESSION_CREATED,
-      {
-        sessionClient,
-        session,
-      }
-    );
-  }
-
-  // Session Client
-  createSessionClient(webSocketClientId: string): SessionClientInterface {
+  // Session
+  createSession(): Session {
     const id = generateRandomHash(8);
-    const now = Date.now();
-
-    const sessionClient: SessionClientInterface = {
-      id,
-      webSocketClientId,
-      displayName: 'Host',
-      deviceType: DeviceTypeEnum.UNKNOWN,
-      devicePlatform: DevicePlatformEnum.UNKNOWN,
-      connectedAt: now,
-      disconnectedAt: 0,
-      lastPingAt: now,
-    };
-
-    this._sessionClientMap.set(id, sessionClient);
-    this._webSocketClientToSessionClientMap.set(webSocketClientId, id);
-
-    return sessionClient;
-  }
-
-  getSessionClient(webSocketClientId: string): SessionClientInterface | null {
-    const sessionClientId = this._webSocketClientToSessionClientMap.get(webSocketClientId);
-    if (!sessionClientId) {
-      return null;
+    if (this._sessionMap.has(id)) {
+      throw new Error('Session id already in use');
     }
 
-    return this._sessionClientMap.get(sessionClientId) ?? null;
-  }
-
-  // Session
-  createSession(sessionClient: SessionClientInterface): SessionInterface {
-    const id = generateRandomHash(8);
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
-
     if (this._sessionAccessCodeMap.has(accessCode)) {
       throw new Error('Access code already in use');
     }
 
-    const session: SessionInterface = {
-      id,
-      accessCode,
-      clients: [sessionClient],
-      createdAt: Date.now(),
-    };
+    const session = new Session(id, accessCode);
 
     this._sessionMap.set(id, session);
     this._sessionAccessCodeMap.set(accessCode, id);
@@ -122,11 +63,11 @@ export class SessionManager {
     return session;
   }
 
-  getSession(id: string): SessionInterface | null {
+  getSession(id: string): Session | null {
     return this._sessionMap.get(id) ?? null;
   }
 
-  getSessionByAccessCode(accessCode: string): SessionInterface | null {
+  getSessionByAccessCode(accessCode: string): Session | null {
     const sessionId = this._sessionAccessCodeMap.get(accessCode);
     if (!sessionId) {
       return null;
@@ -134,6 +75,25 @@ export class SessionManager {
 
     return this.getSession(sessionId);
   }
+
+  // Session Client
+  createSessionClient(session: Session, webSocketToken: string): SessionClientInterface {
+    const sessionClient = session.createClient(webSocketToken);
+
+    this._sessionClientMap.set(sessionClient.id, sessionClient);
+    this._webSocketClientToSessionClientMap.set(webSocketToken, sessionClient.id);
+
+    return sessionClient;
+  }
+
+  getSessionClient(webSocketToken: string): SessionClientInterface | null {
+    const sessionClientId = this._webSocketClientToSessionClientMap.get(webSocketToken);
+    if (!sessionClientId) {
+      return null;
+    }
+
+    return this._sessionClientMap.get(sessionClientId) ?? null;
+  }
 }
 
-export const sessionManager = new SessionManager(webSocketManager);
+export const sessionManager = new SessionManager();

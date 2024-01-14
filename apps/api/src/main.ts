@@ -1,10 +1,8 @@
 import cors from 'cors';
-import express, { Request } from 'express';
+import express from 'express';
 import expressWs from 'express-ws';
-import { WebSocket } from 'ws';
 
-import { sessionManager } from './SessionManager';
-import { webSocketManager } from './WebSocketManager';
+import { addRoutes } from './Routes';
 
 export async function bootstrap(port?: number) {
   if (!port) {
@@ -19,13 +17,7 @@ export async function bootstrap(port?: number) {
   app.use(cors());
 
   // Routes
-  app.get('/', (_, res) => {
-    res.json({ hello: 'world' });
-  });
-
-  app.ws('/ws', (webSocket: WebSocket, request: Request) => {
-    webSocketManager.addWebSocketConnection(webSocket, request, sessionManager);
-  });
+  addRoutes(app);
 
   // Listen
   const url = `http://localhost:${port}`;

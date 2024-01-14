@@ -8,6 +8,10 @@ export interface WebSocketClientOptions {
 
 export class WebSocketClient {
   private _options: WebSocketClientOptions;
+
+  private _token: string | null = null;
+  private _sessionId: string | null = null;
+
   private _client: WebSocket | null = null;
   private _isReconnecting: boolean = false;
   private _heartbeatInterval: NodeJS.Timeout | null = null;
@@ -16,9 +20,17 @@ export class WebSocketClient {
   constructor(options: Partial<WebSocketClientOptions> = {}) {
     this._options = {
       maxRetries: options.maxRetries ?? 5,
-      retryInterval: options.retryInterval ?? 100,
+      retryInterval: options.retryInterval ?? 200,
       heartbeatInterval: options.heartbeatInterval ?? 5000,
     };
+  }
+
+  setToken(token: string) {
+    this._token = token;
+  }
+
+  setSessionId(sessionId: string) {
+    this._sessionId = sessionId;
   }
 
   public async getClient(): Promise<WebSocket> {
@@ -74,7 +86,19 @@ export class WebSocketClient {
 
   private async _createWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
-      const websocket = new WebSocket(WS_URL);
+      if (!this._token) {
+        reject(new Error('No token provided'));
+        return;
+      }
+
+      if (!this._sessionId) {
+        reject(new Error('No session id provided'));
+        return;
+      }
+
+      const websocketUrl = `${WS_URL}/session/${this._sessionId}?token=${this._token}`;
+      const websocket = new WebSocket(websocketUrl);
+
       let retries = 0;
 
       websocket.onopen = () => {
