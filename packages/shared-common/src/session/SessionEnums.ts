@@ -1,26 +1,10 @@
 import { SessionInterface } from './Session';
-import { SessionClientInterface } from './SessionClient';
 
 export enum SessionTypeEnum {
-  // Requests
-  CREATE_SESSION = 'create-session',
-  JOIN_SESSION = 'join-session',
-  // Responses
-  SESSION_CREATED = 'session-created',
-  SESSION_JOINED = 'session-joined',
+  DELTA_STATE_UPDATE = 'delta-state-update',
+  FULL_STATE_UPDATE = 'full-state-update',
 }
 
 export type SessionTypePayloadMap = {
-  [SessionTypeEnum.CREATE_SESSION]: undefined;
-  [SessionTypeEnum.JOIN_SESSION]: {
-    accessCode: string;
-  };
-  [SessionTypeEnum.SESSION_CREATED]: {
-    sessionClient: SessionClientInterface;
-    session: SessionInterface;
-  };
-  [SessionTypeEnum.SESSION_JOINED]: {
-    sessionClient: SessionClientInterface;
-    session: SessionInterface;
-  };
+  [SessionTypeEnum.FULL_STATE_UPDATE]: SessionInterface;
 };

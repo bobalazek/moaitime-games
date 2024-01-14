@@ -46,6 +46,6 @@ export const addRoutes = (app: Instance['app']) => {
     const { id } = req.params;
     const { token } = req.query;
 
-    webSocketManager.onWebSocketConnection(webSocket, token as string, id);
+    webSocketManager.onConnection(webSocket, token as string, id);
   });
 };

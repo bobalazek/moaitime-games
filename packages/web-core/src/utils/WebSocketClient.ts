@@ -1,4 +1,4 @@
-import { WS_URL } from '@moaitime-games/shared-common';
+import { serializer, WS_URL } from '@moaitime-games/shared-common';
 
 export interface WebSocketClientOptions {
   maxRetries: number;
@@ -33,7 +33,11 @@ export class WebSocketClient {
     this._sessionId = sessionId;
   }
 
-  public async getClient(): Promise<WebSocket> {
+  async connect() {
+    await this.getClient();
+  }
+
+  async getClient(): Promise<WebSocket> {
     if (this._client && this._client.readyState === WebSocket.OPEN) {
       return this._client;
     }
@@ -48,35 +52,28 @@ export class WebSocketClient {
     return this._createWebSocket();
   }
 
-  public async send<T>(type: string, payload?: T) {
+  async send<T>(type: string, payload?: T) {
     const client = await this.getClient();
 
     const clientTime = Date.now();
 
-    client.send(JSON.stringify({ type, payload, clientTime }));
+    client.send(serializer.serialize({ type, payload, clientTime }));
   }
 
-  public on(listener: (data: unknown) => void): void {
+  on(listener: (data: unknown) => void): void {
     this._listeners.push(listener);
   }
 
-  public off(listener: (data: unknown) => void): void {
+  off(listener: (data: unknown) => void): void {
     this._listeners = this._listeners.filter((l) => l !== listener);
   }
 
-  public onType<T>(type: string, listener: (payload: T) => void): void {
+  onType<T>(type: string, listener: (payload: T) => void): void {
     this.on((message) => {
-      const { type: messageType, payload } = JSON.parse(message as string);
-
-      if (messageType === type) {
-        listener(payload);
-      }
-    });
-  }
-
-  public offType<T>(type: string, listener: (payload: T) => void): void {
-    this.off((message) => {
-      const { type: messageType, payload } = JSON.parse(message as string);
+      const { type: messageType, payload } = serializer.deserialize(message as string) as {
+        type: string;
+        payload: T;
+      };
 
       if (messageType === type) {
         listener(payload);

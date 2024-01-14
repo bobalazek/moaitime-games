@@ -17,16 +17,27 @@ export function CreateSessionView() {
 
     isInitialized.current = true;
 
+    const onStateChange = (updatedSession: SessionInterface) => {
+      setSession(updatedSession);
+    };
+
     (async () => {
       try {
         const createdSession = await sessionManager.createSession();
+
         setSession(createdSession);
+
+        sessionManager.onStateChange(onStateChange);
       } catch (error: unknown) {
         setError(error instanceof Error ? error.message : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
     })();
+
+    return () => {
+      sessionManager.offStateChange(onStateChange);
+    };
   }, []);
 
   if (isLoading) {
@@ -64,14 +75,14 @@ export function CreateSessionView() {
           following code
         </div>
         <div className="mb-8 text-8xl font-bold text-emerald-400">{accessCode}</div>
-        {session.clients.length === 0 && (
+        {session.clients.size === 0 && (
           <div className="mb-8 text-2xl font-bold">Waiting for players to join ...</div>
         )}
-        {session.clients.length > 0 && (
+        {session.clients.size > 0 && (
           <div>
             <div className="mb-6 text-2xl font-bold">Joined</div>
             <div className="flex items-center justify-center text-2xl">
-              {session.clients.map((client) => (
+              {Array.from(session.clients.values()).map((client) => (
                 <li key={client.id} className="flex rounded-full bg-slate-600 p-8">
                   {client.displayName}
                 </li>

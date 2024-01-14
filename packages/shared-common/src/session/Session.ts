@@ -3,7 +3,7 @@ import { SessionClientInterface } from './SessionClient';
 export interface SessionInterface<TGameState = unknown> {
   id: string;
   accessCode: string;
-  clients: SessionClientInterface[];
+  clients: Map<string, SessionClientInterface>;
   createdAt: number;
   gameState?: TGameState;
   hostClientId?: string;

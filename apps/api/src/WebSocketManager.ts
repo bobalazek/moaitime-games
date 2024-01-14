@@ -1,7 +1,5 @@
 import { WebSocket } from 'ws';
 
-import { SessionTypeEnum, SessionTypePayloadMap } from '@moaitime-games/shared-common';
-
 import { generateRandomHash } from './Helpers';
 import { sessionManager } from './SessionManager';
 
@@ -50,7 +48,7 @@ export class WebSocketManager {
     return token;
   }
 
-  onWebSocketConnection(webSocket: WebSocket, token: string, sessionId: string) {
+  onConnection(webSocket: WebSocket, token: string, sessionId: string) {
     if (!token) {
       console.log('[API] ❌ No client token provided');
       return;
@@ -71,49 +69,37 @@ export class WebSocketManager {
     this._webSocketMap.set(token, webSocket);
     this._webSocketLastActivityMap.set(token, Date.now());
 
-    console.log(`[API] ✅ Client ${token} connected`);
+    sessionManager.joinSession(sessionId, token);
 
-    webSocket.on('message', (message: string) => this._onWebSocketMessage(token, message));
-    webSocket.on('error', (error) => this._onWebSocketError(token, error));
-    webSocket.on('close', () => this._onWebSocketClose(token));
+    console.log(`[API] ✅ Client with token ${token} connected`);
+
+    webSocket.on('message', (message: string) => this._onMessage(token, message));
+    webSocket.on('error', (error) => this._onError(token, error));
+    webSocket.on('close', () => this._onClose(token));
   }
 
-  sendToWebSocketClient(
-    webSocketToken: string,
-    type: SessionTypeEnum,
-    payload: SessionTypePayloadMap[SessionTypeEnum]
-  ) {
-    const webSocket = this._webSocketMap.get(webSocketToken);
-    if (!webSocket) {
-      console.log(`[API] ❌ Client ${webSocketToken} not found`);
-      return;
-    }
-
-    const message = JSON.stringify({ type, payload });
-
-    console.log(`[API] 📩 Sending: ${message}`);
-
-    webSocket.send(message);
+  getWebSocketByToken(webSocketToken: string) {
+    return this._webSocketMap.get(webSocketToken) ?? null;
   }
 
-  _onWebSocketMessage(webSocketToken: string, message: string) {
-    console.log(`[API] 📨 Received: ${message} from ${webSocketToken}`);
+  _onMessage(webSocketToken: string, message: string) {
+    console.log(`[API] 📨 Received: ${message} from token ${webSocketToken}`);
 
     this._webSocketLastActivityMap.set(webSocketToken, Date.now());
 
     sessionManager.onMessage(webSocketToken, message);
   }
 
-  _onWebSocketError(webSocketToken: string, error: Error) {
-    console.log(`[API] ❌ Client ${webSocketToken} errored: ${error.message}`);
+  _onError(webSocketToken: string, error: Error) {
+    console.log(`[API] ❌ Client with token ${webSocketToken} errored: ${error.message}`);
 
     sessionManager.onError(webSocketToken, error);
 
     this._cleanupWebSocket(webSocketToken);
   }
 
-  _onWebSocketClose(webSocketToken: string) {
-    console.log(`[API] ❌ Client ${webSocketToken} closed`);
+  _onClose(webSocketToken: string) {
+    console.log(`[API] ❌ Client with token ${webSocketToken} closed`);
 
     sessionManager.onClose(webSocketToken);
 
@@ -121,6 +107,11 @@ export class WebSocketManager {
   }
 
   _cleanupWebSocket(webSocketToken: string) {
+    const webSocket = this._webSocketMap.get(webSocketToken);
+    if (webSocket && webSocket.readyState === WebSocket?.OPEN) {
+      webSocket.terminate();
+    }
+
     this._webSocketMap.delete(webSocketToken);
     this._webSocketLastActivityMap.delete(webSocketToken);
   }

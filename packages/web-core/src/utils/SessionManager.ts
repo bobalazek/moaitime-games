@@ -14,6 +14,8 @@ export class SessionManager {
   private _sessionClient: SessionClientInterface | null = null;
   private _session: SessionInterface | null = null;
 
+  private _onStateChangeCallbacks: Array<(state: SessionInterface) => void> = [];
+
   getSessionClient() {
     return this._sessionClient;
   }
@@ -28,13 +30,28 @@ export class SessionManager {
     webSocketClient.setToken(token);
 
     const session = await fetchJson<SessionInterface>(
-      `${API_URL}/session/${accessCode}?byAccessCode=true`
+      `${API_URL}/session/${accessCode}?token=${token}&byAccessCode=true`
     );
     if (!session) {
       throw new Error('Session not found');
     }
 
     webSocketClient.setSessionId(session.id);
+
+    await webSocketClient.connect();
+
+    webSocketClient.onType(
+      SessionTypeEnum.FULL_STATE_UPDATE,
+      (payload: SessionTypePayloadMap[SessionTypeEnum.FULL_STATE_UPDATE]) => {
+        this._session = payload;
+
+        if (this._onStateChangeCallbacks.length > 0) {
+          for (const callback of this._onStateChangeCallbacks) {
+            callback(this._session);
+          }
+        }
+      }
+    );
 
     return session;
   }
@@ -44,14 +61,14 @@ export class SessionManager {
 
     webSocketClient.setToken(token);
 
-    const session = await fetchJson<SessionInterface>(`${API_URL}/session`, {
+    const session = await fetchJson<SessionInterface>(`${API_URL}/session?token=${token}`, {
       method: 'POST',
     });
     if (!session) {
       throw new Error('Session not found');
     }
 
-    webSocketClient.setSessionId(session.id);
+    await this.joinSession(session.accessCode);
 
     return session;
   }
@@ -69,6 +86,14 @@ export class SessionManager {
     this._token = data.token;
 
     return data.token;
+  }
+
+  onStateChange(callback: (state: SessionInterface) => void) {
+    this._onStateChangeCallbacks.push(callback);
+  }
+
+  offStateChange(callback: (state: SessionInterface) => void) {
+    this._onStateChangeCallbacks = this._onStateChangeCallbacks.filter((cb) => cb !== callback);
   }
 }
 
