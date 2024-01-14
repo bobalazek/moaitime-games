@@ -10,23 +10,17 @@ export const addRoutes = (app: Instance['app']) => {
     res.json({ hello: 'world' });
   });
 
-  app.get('/token', (_, res) => {
-    try {
-      const token = webSocketManager.issueToken();
-
-      res.json({ token });
-    } catch (error: unknown) {
-      res
-        .status(400)
-        .json({ error: error instanceof Error ? error.message : 'Something went wrong' });
-    }
-  });
-
   app.post('/session', (_, res) => {
     try {
+      const token = webSocketManager.issueToken();
       const session = sessionManager.createSession();
+      const sessionState = session.getState();
 
-      res.json(session.getState());
+      res.json({
+        token,
+        sessionId: sessionState.id,
+        sessionAccessCode: sessionState.accessCode,
+      });
     } catch (error: unknown) {
       res
         .status(400)
@@ -38,8 +32,10 @@ export const addRoutes = (app: Instance['app']) => {
     try {
       const { id } = req.params;
       const { byAccessCode, token } = req.query;
+      const { body } = req as Request & { body: Record<string, unknown> };
+
       if (!id) {
-        throw new Error('Missing id or access code');
+        throw new Error('Missing ID or Access Code');
       }
 
       const session =
@@ -48,16 +44,32 @@ export const addRoutes = (app: Instance['app']) => {
           : sessionManager.getSession(id);
       if (!session) {
         throw new Error('Session not found');
-        return;
       }
 
-      const { body } = req as Request & { body: Record<string, unknown> };
+      const sessionState = session.getState();
+
+      let issuedToken = token as string | undefined;
+      if (!issuedToken) {
+        issuedToken = webSocketManager.issueToken();
+      }
 
       if (body && Object.keys(body).length > 0) {
-        webSocketManager.updateIssuedToken(token as string, body);
+        if (body.displayName !== undefined) {
+          if (body.displayName.length < 3) {
+            throw new Error('Display name must be at least 3 characters');
+          } else if (body.displayName.length > 16) {
+            throw new Error('Display name must be less than 16 characters');
+          }
+        }
+
+        webSocketManager.updateIssuedToken(issuedToken, body);
       }
 
-      res.json(session.getState());
+      res.json({
+        token: issuedToken,
+        sessionId: sessionState.id,
+        sessionAccessCode: sessionState.accessCode,
+      });
     } catch (error: unknown) {
       res
         .status(400)

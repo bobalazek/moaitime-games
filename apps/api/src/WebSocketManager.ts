@@ -114,8 +114,6 @@ export class WebSocketManager {
   }
 
   _onMessage(webSocketToken: string, message: string) {
-    console.log(`[API] 📨 Received: ${message} from token ${webSocketToken}`);
-
     this._webSocketLastActivityMap.set(webSocketToken, Date.now());
 
     sessionManager.onMessage(webSocketToken, message);

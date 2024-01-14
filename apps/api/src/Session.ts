@@ -12,6 +12,8 @@ import {
 import { generateRandomHash } from './Helpers';
 import { webSocketManager } from './WebSocketManager';
 
+const PING_INTERVAL = 15000;
+
 export class Session {
   private _isStarted: boolean = false;
   private _state: SessionInterface;
@@ -65,12 +67,20 @@ export class Session {
 
       // TODO: implement delta updates
     }, 1000 / this._fps);
+
+    // Starting the ping loop
+    setInterval(() => {
+      this.sendToAllSessionClients('ping', {
+        serverTime: Date.now(),
+      });
+    }, PING_INTERVAL);
   }
 
   dispose() {
     // TODO
   }
 
+  // Events
   onMessage(webSocketToken: string, message: unknown) {
     const data = serializer.deserialize(message as string) as { type: string; payload: unknown };
 
@@ -81,6 +91,29 @@ export class Session {
     }
   }
 
+  onError(webSocketToken: string, error: Error) {
+    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
+    if (!sessionClient) {
+      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
+
+      return;
+    }
+
+    this._state.clients.delete(sessionClient.id);
+  }
+
+  onClose(webSocketToken: string) {
+    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
+    if (!sessionClient) {
+      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
+
+      return;
+    }
+
+    this._state.clients.delete(sessionClient.id);
+  }
+
+  // State
   getState() {
     return this._state;
   }
@@ -135,14 +168,12 @@ export class Session {
 
     const webSocket = webSocketManager.getWebSocketByToken(sessionClient.webSocketToken);
     if (!webSocket) {
-      console.log(`[API] ❌ WebSocket with token ${sessionClient.webSocketToken} not found`);
+      console.log(`[API] ❌ Client with token ${sessionClient.webSocketToken} not found`);
 
       return;
     }
 
     const message = serializer.serialize({ type, payload });
-
-    console.log(`[API] 📩 Sending: ${message} to client with ID ${sessionClientId}`);
 
     webSocket.send(message);
   }

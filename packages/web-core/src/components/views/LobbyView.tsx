@@ -10,32 +10,58 @@ export function LobbyView() {
   }
 
   const accessCode = session.accessCode.replace(/(.{3})/g, '$1 ').trim();
+  const clients = Array.from(session.clients.values());
+  const myClient = clients.find((c) => c.webSocketToken === token);
+
+  const isHost = session.hostClientId === myClient?.id;
+  const isController = session.controllerClientId === myClient?.id;
 
   return (
-    <div className="container m-auto">
-      <div className="mt-8 p-4 text-center text-2xl">
-        <div className="mb-2">Your room is ready!</div>
-        <div className="mb-8">
-          Tell your mates to go to <b className="text-emerald-400">{WEB_URL}</b> and enter the
-          following code
+    <div>
+      {!isHost && (
+        <header className="flex items-center justify-between bg-slate-700 p-4 text-center text-2xl">
+          <div className="flex gap-4">
+            <img src="/assets/moaitime_logo.png" alt="Logo" className="h-8 w-8" /> MoaiTime Games
+          </div>
+          <div className="font-bold text-emerald-400">{accessCode}</div>
+        </header>
+      )}
+      {isHost && (
+        <div className="mt-8 p-4 text-center text-2xl">
+          <div className="mb-2">Your room is ready!</div>
+          <div className="mb-8">
+            Tell your mates to go to <b className="text-emerald-400">{WEB_URL}</b> and enter the
+            following code
+          </div>
+          <div className="text-8xl font-bold text-emerald-400">{accessCode}</div>
         </div>
-        <div className="mb-8 text-8xl font-bold text-emerald-400">{accessCode}</div>
-        {session.clients.size === 0 && (
-          <div className="mb-8 text-2xl font-bold">Waiting for players to join ...</div>
+      )}
+      <div className="mt-4">
+        {clients.length === 0 && (
+          <div className="text-2xl font-bold">Waiting for players to join ...</div>
         )}
-        {session.clients.size > 0 && (
+        {clients.length > 0 && (
           <div>
-            <div className="mb-6 text-2xl font-bold">Joined</div>
+            <div className="mb-4 text-center text-2xl font-bold">Players</div>
             <div className="flex items-center justify-center gap-2 text-2xl">
-              {Array.from(session.clients.values()).map((client) => {
-                const isMe = client.webSocketToken === token;
+              {clients.map((client) => {
+                const isClientHost = client.id === session.hostClientId;
+                const isClientMe = client.webSocketToken === token;
+                const isClientController = client.id === session.controllerClientId;
 
                 return (
                   <div
                     key={client.id}
-                    className={cn('flex rounded-full bg-slate-600 p-8', isMe && 'bg-emerald-400')}
+                    className={cn(
+                      'flex gap-2 rounded-full bg-slate-600 p-6',
+                      isClientMe && 'bg-emerald-400'
+                    )}
                   >
-                    {client.displayName}
+                    <span>{client.displayName}</span>
+
+                    {isClientHost && <span>📺</span>}
+                    {isClientController && <span>🎮</span>}
+                    {isClientMe && !isClientHost && <span>👋</span>}
                   </div>
                 );
               })}

@@ -5,7 +5,6 @@ import { useSessionStore } from '../state/sessionStore';
 export interface WebSocketClientOptions {
   maxRetries: number;
   retryInterval: number;
-  heartbeatInterval: number;
 }
 
 export class WebSocketClient {
@@ -13,14 +12,13 @@ export class WebSocketClient {
 
   private _client: WebSocket | null = null;
   private _isReconnecting: boolean = false;
-  private _heartbeatInterval: NodeJS.Timeout | null = null;
+
   private _listeners: ((data: unknown) => void)[] = [];
 
   constructor(options: Partial<WebSocketClientOptions> = {}) {
     this._options = {
       maxRetries: options.maxRetries ?? 5,
       retryInterval: options.retryInterval ?? 200,
-      heartbeatInterval: options.heartbeatInterval ?? 5000,
     };
   }
 
@@ -51,25 +49,12 @@ export class WebSocketClient {
     client.send(serializer.serialize({ type, payload, clientTime }));
   }
 
-  on(listener: (data: unknown) => void): void {
-    this._listeners.push(listener);
+  on<T>(listener: (data: T) => void): void {
+    this._listeners.push(listener as (data: unknown) => void);
   }
 
   off(listener: (data: unknown) => void): void {
     this._listeners = this._listeners.filter((l) => l !== listener);
-  }
-
-  onType<T>(type: string, listener: (payload: T) => void): void {
-    this.on((message) => {
-      const { type: messageType, payload } = serializer.deserialize(message as string) as {
-        type: string;
-        payload: T;
-      };
-
-      if (messageType === type) {
-        listener(payload);
-      }
-    });
   }
 
   private async _createWebSocket(): Promise<WebSocket> {
@@ -84,7 +69,7 @@ export class WebSocketClient {
       websocket.onopen = () => {
         this._client = websocket;
         this._isReconnecting = false;
-        this._startHeartbeat();
+
         resolve(websocket);
       };
 
@@ -103,7 +88,6 @@ export class WebSocketClient {
       };
 
       websocket.onclose = () => {
-        this._stopHeartbeat();
         if (!this._isReconnecting) {
           this._isReconnecting = true;
           this.getClient(); // Attempt to reconnect
@@ -111,32 +95,19 @@ export class WebSocketClient {
       };
 
       websocket.onmessage = (messageEvent) => {
-        this._notifyListeners(messageEvent);
+        const data = serializer.deserialize(messageEvent.data as string);
+
+        if (data && (data as { type: string }).type === 'ping') {
+          this.send('pong');
+
+          return;
+        }
+
+        for (const listener of this._listeners) {
+          listener(data);
+        }
       };
     });
-  }
-
-  private _notifyListeners(messageEvent: MessageEvent): void {
-    for (const listener of this._listeners) {
-      listener(messageEvent.data);
-    }
-  }
-
-  private _startHeartbeat() {
-    if (this._heartbeatInterval) {
-      clearInterval(this._heartbeatInterval);
-    }
-
-    this._heartbeatInterval = setInterval(() => {
-      this.send('ping');
-    }, this._options.heartbeatInterval);
-  }
-
-  private _stopHeartbeat() {
-    if (this._heartbeatInterval) {
-      clearInterval(this._heartbeatInterval);
-      this._heartbeatInterval = null;
-    }
   }
 }
 

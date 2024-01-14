@@ -21,10 +21,24 @@ export class SessionManager {
   }
 
   onError(webSocketToken: string, error: Error) {
+    const session = this.getSessionForWebSocketToken(webSocketToken);
+    if (!session) {
+      return;
+    }
+
+    session.onError(webSocketToken, error);
+
     this._webSocketTokenToSessionIdMap.delete(webSocketToken);
   }
 
   onClose(webSocketToken: string) {
+    const session = this.getSessionForWebSocketToken(webSocketToken);
+    if (!session) {
+      return;
+    }
+
+    session.onClose(webSocketToken);
+
     this._webSocketTokenToSessionIdMap.delete(webSocketToken);
   }
 
@@ -63,18 +77,14 @@ export class SessionManager {
     const sessionState = session.getState();
 
     const isHost = sessionState.clients.size === 0;
+    const isFirstPlayerBesidesHost = sessionState.clients.size === 1;
+
     if (isHost) {
       displayName = 'Host';
     }
 
     if (!displayName) {
       throw new Error('Display name not provided');
-    }
-
-    if (displayName.length < 3) {
-      throw new Error('Display name must be at least 3 characters');
-    } else if (displayName.length > 16) {
-      throw new Error('Display name must be less than 16 characters');
     }
 
     const sessionClient = session.createClient(webSocketToken, displayName);
@@ -84,6 +94,10 @@ export class SessionManager {
     if (isHost) {
       session.updateState({
         hostClientId: sessionClient.id,
+      });
+    } else if (isFirstPlayerBesidesHost) {
+      session.updateState({
+        controllerClientId: sessionClient.id,
       });
     }
 
