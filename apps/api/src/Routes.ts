@@ -11,41 +11,58 @@ export const addRoutes = (app: Instance['app']) => {
   });
 
   app.get('/token', (_, res) => {
-    const token = webSocketManager.issueToken();
+    try {
+      const token = webSocketManager.issueToken();
 
-    res.json({ token });
+      res.json({ token });
+    } catch (error: unknown) {
+      res
+        .status(400)
+        .json({ error: error instanceof Error ? error.message : 'Something went wrong' });
+    }
   });
 
   app.post('/session', (_, res) => {
-    const session = sessionManager.createSession();
+    try {
+      const session = sessionManager.createSession();
 
-    res.json(session.getState());
+      res.json(session.getState());
+    } catch (error: unknown) {
+      res
+        .status(400)
+        .json({ error: error instanceof Error ? error.message : 'Something went wrong' });
+    }
   });
 
   app.post('/session/:id', (req, res) => {
-    const { id } = req.params;
-    const { byAccessCode, token } = req.query;
-    if (!id) {
-      res.status(400).json({ error: 'Missing id or access code' });
-      return;
+    try {
+      const { id } = req.params;
+      const { byAccessCode, token } = req.query;
+      if (!id) {
+        throw new Error('Missing id or access code');
+      }
+
+      const session =
+        byAccessCode === 'true'
+          ? sessionManager.getSessionByAccessCode(id)
+          : sessionManager.getSession(id);
+      if (!session) {
+        throw new Error('Session not found');
+        return;
+      }
+
+      const { body } = req as Request & { body: Record<string, unknown> };
+
+      if (body && Object.keys(body).length > 0) {
+        webSocketManager.updateIssuedToken(token as string, body);
+      }
+
+      res.json(session.getState());
+    } catch (error: unknown) {
+      res
+        .status(400)
+        .json({ error: error instanceof Error ? error.message : 'Something went wrong' });
     }
-
-    const session =
-      byAccessCode === 'true'
-        ? sessionManager.getSessionByAccessCode(id)
-        : sessionManager.getSession(id);
-    if (!session) {
-      res.status(404).json({ error: 'Session not found' });
-      return;
-    }
-
-    const { body } = req as Request & { body: Record<string, unknown> };
-
-    if (body && Object.keys(body).length > 0) {
-      webSocketManager.updateIssuedToken(token as string, body);
-    }
-
-    res.json(session.getState());
   });
 
   app.ws('/ws/session/:id', (webSocket: WebSocket, req) => {
@@ -58,7 +75,7 @@ export const addRoutes = (app: Instance['app']) => {
     }
 
     if (!id) {
-      webSocket.close(4002, 'Missing id');
+      webSocket.close(4002, 'Missing session ID');
       return;
     }
 

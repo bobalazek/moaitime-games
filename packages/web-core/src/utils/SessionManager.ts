@@ -11,7 +11,6 @@ import { fetchJson } from './FetchHelpers';
 import { webSocketClient } from './WebSocketClient';
 
 export class SessionManager {
-  private _token: string | null = null;
   private _sessionClient: SessionClientInterface | null = null;
   private _session: SessionInterface | null = null;
 
@@ -30,11 +29,9 @@ export class SessionManager {
       throw new Error('Access code is required');
     }
 
-    const { setSession } = useSessionStore.getState();
+    const { setSessionId, setSession } = useSessionStore.getState();
 
-    const token = await this.getToken();
-
-    webSocketClient.setToken(token);
+    const token = await this.requestToken();
 
     try {
       const session = await fetchJson<SessionInterface>(
@@ -49,11 +46,9 @@ export class SessionManager {
         }
       );
 
-      webSocketClient.setSessionId(session.id);
+      setSessionId(session.id);
 
       await webSocketClient.connect();
-
-      setSession(session);
 
       webSocketClient.onType(
         SessionTypeEnum.FULL_STATE_UPDATE,
@@ -71,9 +66,7 @@ export class SessionManager {
   }
 
   async createSession(): Promise<SessionInterface> {
-    const token = await this.getToken();
-
-    webSocketClient.setToken(token);
+    const token = await this.requestToken();
 
     const session = await fetchJson<SessionInterface>(`${API_URL}/session?token=${token}`, {
       method: 'POST',
@@ -87,9 +80,11 @@ export class SessionManager {
     return session;
   }
 
-  async getToken(): Promise<string> {
-    if (this._token) {
-      return this._token;
+  async requestToken(): Promise<string> {
+    const { token, setToken } = useSessionStore.getState();
+
+    if (token) {
+      return token;
     }
 
     const data = await fetchJson<{ token: string }>(`${API_URL}/token`);
@@ -97,7 +92,7 @@ export class SessionManager {
       throw new Error('Could not get token');
     }
 
-    this._token = data.token;
+    setToken(data.token);
 
     return data.token;
   }

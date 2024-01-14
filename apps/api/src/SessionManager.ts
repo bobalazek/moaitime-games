@@ -61,7 +61,9 @@ export class SessionManager {
     let displayName = options?.displayName;
 
     const sessionState = session.getState();
-    if (sessionState.clients.size === 0) {
+
+    const isHost = sessionState.clients.size === 0;
+    if (isHost) {
       displayName = 'Host';
     }
 
@@ -69,9 +71,21 @@ export class SessionManager {
       throw new Error('Display name not provided');
     }
 
+    if (displayName.length < 3) {
+      throw new Error('Display name must be at least 3 characters');
+    } else if (displayName.length > 16) {
+      throw new Error('Display name must be less than 16 characters');
+    }
+
     const sessionClient = session.createClient(webSocketToken, displayName);
 
     session.addClient(sessionClient);
+
+    if (isHost) {
+      session.updateState({
+        hostClientId: sessionClient.id,
+      });
+    }
 
     this._webSocketTokenToSessionIdMap.set(webSocketToken, sessionId);
 

@@ -1,5 +1,7 @@
 import { serializer, WS_URL } from '@moaitime-games/shared-common';
 
+import { useSessionStore } from '../state/sessionStore';
+
 export interface WebSocketClientOptions {
   maxRetries: number;
   retryInterval: number;
@@ -8,9 +10,6 @@ export interface WebSocketClientOptions {
 
 export class WebSocketClient {
   private _options: WebSocketClientOptions;
-
-  private _token: string | null = null;
-  private _sessionId: string | null = null;
 
   private _client: WebSocket | null = null;
   private _isReconnecting: boolean = false;
@@ -23,14 +22,6 @@ export class WebSocketClient {
       retryInterval: options.retryInterval ?? 200,
       heartbeatInterval: options.heartbeatInterval ?? 5000,
     };
-  }
-
-  setToken(token: string) {
-    this._token = token;
-  }
-
-  setSessionId(sessionId: string) {
-    this._sessionId = sessionId;
   }
 
   async connect() {
@@ -83,17 +74,9 @@ export class WebSocketClient {
 
   private async _createWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
-      if (!this._token) {
-        reject(new Error('No token provided'));
-        return;
-      }
+      const { token, sessionId } = useSessionStore.getState();
 
-      if (!this._sessionId) {
-        reject(new Error('No session ID provided'));
-        return;
-      }
-
-      const websocketUrl = `${WS_URL}/session/${this._sessionId}?token=${this._token}`;
+      const websocketUrl = `${WS_URL}/session/${sessionId}?token=${token}`;
       const websocket = new WebSocket(websocketUrl);
 
       let retries = 0;

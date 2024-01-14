@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { SessionInterface, WEB_URL } from '@moaitime-games/shared-common';
+import { SessionInterface } from '@moaitime-games/shared-common';
 
 import { sessionManager } from '../../utils/SessionManager';
+import { LobbyView } from './LobbyView';
 
 export function CreateSessionView() {
   const [isLoading, setIsLoading] = useState(true);
@@ -64,33 +65,5 @@ export function CreateSessionView() {
     );
   }
 
-  const accessCode = session.accessCode.replace(/(.{3})/g, '$1 ').trim();
-
-  return (
-    <div className="container m-auto">
-      <div className="mt-8 p-4 text-center text-2xl">
-        <div className="mb-2">Your room is ready!</div>
-        <div className="mb-8">
-          Tell your mates to go to <b className="text-emerald-400">{WEB_URL}</b> and enter the
-          following code
-        </div>
-        <div className="mb-8 text-8xl font-bold text-emerald-400">{accessCode}</div>
-        {session.clients.size === 0 && (
-          <div className="mb-8 text-2xl font-bold">Waiting for players to join ...</div>
-        )}
-        {session.clients.size > 0 && (
-          <div>
-            <div className="mb-6 text-2xl font-bold">Joined</div>
-            <div className="flex items-center justify-center text-2xl">
-              {Array.from(session.clients.values()).map((client) => (
-                <li key={client.id} className="flex rounded-full bg-slate-600 p-8">
-                  {client.displayName}
-                </li>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <LobbyView />;
 }

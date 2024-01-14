@@ -89,6 +89,13 @@ export class Session {
     this._state = session;
   }
 
+  updateState(session: Partial<SessionInterface>) {
+    this._state = {
+      ...this._state,
+      ...session,
+    };
+  }
+
   createClient(
     webSocketToken: string,
     displayName: string,
