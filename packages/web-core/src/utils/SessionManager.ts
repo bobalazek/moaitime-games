@@ -6,6 +6,7 @@ import {
   SessionTypePayloadMap,
 } from '@moaitime-games/shared-common';
 
+import { useSessionStore } from '../state/sessionStore';
 import { fetchJson } from './FetchHelpers';
 import { webSocketClient } from './WebSocketClient';
 
@@ -24,36 +25,49 @@ export class SessionManager {
     return this._session;
   }
 
-  async joinSession(accessCode: string): Promise<SessionInterface> {
+  async joinSession(accessCode: string, data?: Record<string, unknown>): Promise<SessionInterface> {
+    if (!accessCode) {
+      throw new Error('Access code is required');
+    }
+
+    const { setSession } = useSessionStore.getState();
+
     const token = await this.getToken();
 
     webSocketClient.setToken(token);
 
-    const session = await fetchJson<SessionInterface>(
-      `${API_URL}/session/${accessCode}?token=${token}&byAccessCode=true`
-    );
-    if (!session) {
-      throw new Error('Session not found');
-    }
-
-    webSocketClient.setSessionId(session.id);
-
-    await webSocketClient.connect();
-
-    webSocketClient.onType(
-      SessionTypeEnum.FULL_STATE_UPDATE,
-      (payload: SessionTypePayloadMap[SessionTypeEnum.FULL_STATE_UPDATE]) => {
-        this._session = payload;
-
-        if (this._onStateChangeCallbacks.length > 0) {
-          for (const callback of this._onStateChangeCallbacks) {
-            callback(this._session);
-          }
+    try {
+      const session = await fetchJson<SessionInterface>(
+        `${API_URL}/session/${accessCode}?token=${token}&byAccessCode=true`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
         }
-      }
-    );
+      );
 
-    return session;
+      webSocketClient.setSessionId(session.id);
+
+      await webSocketClient.connect();
+
+      setSession(session);
+
+      webSocketClient.onType(
+        SessionTypeEnum.FULL_STATE_UPDATE,
+        (payload: SessionTypePayloadMap[SessionTypeEnum.FULL_STATE_UPDATE]) => {
+          this._session = payload;
+
+          setSession(this._session);
+        }
+      );
+
+      return session;
+    } catch (error: unknown) {
+      throw new Error(error instanceof Error ? error.message : 'Session does not exist');
+    }
   }
 
   async createSession(): Promise<SessionInterface> {

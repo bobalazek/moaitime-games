@@ -1,4 +1,4 @@
-import { diff } from 'just-diff';
+import { compare } from 'fast-json-patch';
 
 import {
   DevicePlatformEnum,
@@ -39,22 +39,23 @@ export class Session {
 
     this._isStarted = true;
 
-    let lastState: SessionInterface | null = null;
+    let rawLastState: SessionInterface | null = null;
     setInterval(() => {
       let doFullUpdate = false;
 
       const state = this.getState();
+      const rawState = this._toRawJson(state);
 
-      if (!lastState) {
+      if (!rawLastState) {
         doFullUpdate = true;
 
-        lastState = state;
+        rawLastState = rawState;
       } else {
-        const delta = diff(lastState, state);
+        const delta = compare(rawLastState, rawState);
         if (delta.length > 0) {
           doFullUpdate = true;
 
-          lastState = state;
+          rawLastState = rawState;
         }
       }
 
@@ -134,12 +135,14 @@ export class Session {
 
     const message = serializer.serialize({ type, payload });
 
-    console.log(`[API] 📩 Sending: ${message}`);
+    console.log(`[API] 📩 Sending: ${message} to client with ID ${sessionClientId}`);
 
     webSocket.send(message);
   }
 
   sendToAllSessionClients(type: string, payload: unknown): void {
+    console.log(`[API] 📩 Sending to all clients: ${type}`);
+
     for (const [, sessionClient] of this._state.clients) {
       this.sendToSessionClient(sessionClient.id, type, payload);
     }
@@ -170,5 +173,14 @@ export class Session {
     }
 
     return null;
+  }
+
+  /**
+   * We need this to convert the session object to fully raw json for comparison,
+   * which means that we need to convert the map to a record and set to an array.
+   * It should do it recursively.
+   */
+  private _toRawJson(schema: SessionInterface): SessionInterface {
+    return JSON.parse(serializer.serialize(schema));
   }
 }

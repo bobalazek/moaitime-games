@@ -10,14 +10,17 @@ const STALE_WEB_SOCKET_LIFETIME = 30000;
 export class WebSocketManager {
   private _webSocketMap: Map<string, WebSocket> = new Map();
   private _webSocketLastActivityMap: Map<string, number> = new Map();
-  private _issuedTokenMap: Map<string, number> = new Map();
+  private _issuedTokenMap: Map<
+    string,
+    { issuedAt: number; additionalData?: Record<string, unknown> }
+  > = new Map();
 
   constructor() {
     // Garbage collection
     setInterval(() => {
       const now = Date.now();
 
-      for (const [webSocketToken, issuedAt] of this._issuedTokenMap) {
+      for (const [webSocketToken, { issuedAt }] of this._issuedTokenMap) {
         if (now - issuedAt > ISSUED_TOKEN_LIFETIME) {
           console.log(`[API] ❌ Client ${webSocketToken} token expired`);
 
@@ -37,15 +40,40 @@ export class WebSocketManager {
     }, GARBAGE_COLLECTION_INTERVAL);
   }
 
-  issueToken() {
+  issueToken(additionalData?: Record<string, unknown>) {
     const token = generateRandomHash(16);
     if (this._issuedTokenMap.has(token)) {
       throw new Error('Token already in use');
     }
 
-    this._issuedTokenMap.set(token, Date.now());
+    this._issuedTokenMap.set(token, { issuedAt: Date.now(), additionalData });
+
+    console.log(`[API] ✅ Client ${token} token issued`);
 
     return token;
+  }
+
+  updateIssuedToken(token: string, additionalData?: Record<string, unknown>) {
+    if (!this._issuedTokenMap.has(token)) {
+      throw new Error('Token not issued');
+    }
+
+    this._issuedTokenMap.set(token, { issuedAt: Date.now(), additionalData });
+
+    console.log(`[API] ✅ Client ${token} token updated`);
+  }
+
+  redeemToken(token: string) {
+    if (!this._issuedTokenMap.has(token)) {
+      throw new Error('Token not issued');
+    }
+
+    const { additionalData } = this._issuedTokenMap.get(token) ?? {};
+    this._issuedTokenMap.delete(token);
+
+    console.log(`[API] ✅ Client ${token} token redeemed`);
+
+    return additionalData;
   }
 
   onConnection(webSocket: WebSocket, token: string, sessionId: string) {
@@ -65,13 +93,16 @@ export class WebSocketManager {
       return;
     }
 
-    this._issuedTokenMap.delete(token);
+    const redeemedTokenData = this.redeemToken(token);
+
     this._webSocketMap.set(token, webSocket);
     this._webSocketLastActivityMap.set(token, Date.now());
 
-    sessionManager.joinSession(sessionId, token);
+    sessionManager.joinSession(sessionId, token, redeemedTokenData);
 
-    console.log(`[API] ✅ Client with token ${token} connected`);
+    console.log(
+      `[API] ✅ Client with token ${token} connected (additionalData: ${JSON.stringify(redeemedTokenData)})`
+    );
 
     webSocket.on('message', (message: string) => this._onMessage(token, message));
     webSocket.on('error', (error) => this._onError(token, error));

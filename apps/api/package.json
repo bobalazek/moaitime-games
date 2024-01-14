@@ -27,7 +27,7 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-ws": "^5.0.2",
-    "just-diff": "^6.0.2"
+    "fast-json-patch": "^3.1.1"
   },
   "devDependencies": {
     "@moaitime-games/tsconfig-config": "*",

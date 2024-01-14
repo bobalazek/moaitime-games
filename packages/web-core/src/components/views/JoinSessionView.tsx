@@ -1,32 +1,26 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 
 import { sessionManager } from '../../utils/SessionManager';
 
 export function JoinSessionView() {
   const [displayName, setDisplayName] = useState('');
   const [accessCode, setAccessCode] = useState('');
-  const [error, setError] = useState<string>();
   const [isJoining, setIsJoining] = useState(false);
 
   const onJoinButtonClick = async () => {
     setIsJoining(true);
 
     try {
-      await sessionManager.joinSession(accessCode);
+      await sessionManager.joinSession(accessCode, {
+        displayName,
+      });
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'Unknown error');
+      toast.error(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsJoining(false);
     }
   };
-
-  if (error) {
-    return (
-      <div className="p-4 text-center text-2xl">
-        We are sorry, but something went wrong: {error}
-      </div>
-    );
-  }
 
   return (
     <div className="container m-auto">
@@ -44,7 +38,7 @@ export function JoinSessionView() {
         <div className="mb-4">
           <input
             type="number"
-            placeholder="Room code"
+            placeholder="Access code"
             value={accessCode}
             onChange={(e) => setAccessCode(e.target.value)}
             className="rounded border border-gray-400 p-2"

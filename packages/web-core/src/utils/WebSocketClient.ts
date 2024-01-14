@@ -89,7 +89,7 @@ export class WebSocketClient {
       }
 
       if (!this._sessionId) {
-        reject(new Error('No session id provided'));
+        reject(new Error('No session ID provided'));
         return;
       }
 
