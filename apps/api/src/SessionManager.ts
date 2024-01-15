@@ -1,5 +1,7 @@
 import { WebSocket } from 'ws';
 
+import { SessionCodeEnum } from '@moaitime-games/shared-common';
+
 import { generateRandomHash } from './Helpers';
 import { Session } from './Session';
 
@@ -56,7 +58,7 @@ export class SessionManager {
 
           sessionManager.onClose(clientSessionToken);
 
-          this._cleanupClient(clientSessionToken);
+          this.terminateClient(clientSessionToken);
         }
       }
     }, GARBAGE_COLLECTION_INTERVAL);
@@ -162,10 +164,6 @@ export class SessionManager {
     return data;
   }
 
-  getClientBySessionToken(clientSessionToken: string) {
-    return this._clientsMap.get(clientSessionToken) ?? null;
-  }
-
   // Session
   createSession(): Session {
     const id = generateRandomHash(8);
@@ -180,7 +178,7 @@ export class SessionManager {
 
     const session = new Session(id, accessCode);
 
-    session.onTerminated(() => {
+    session.registerTerminaltedCallback(() => {
       console.log(`[SessionManager] Session "${id}" terminated`);
 
       this._sessionMap.delete(id);
@@ -236,12 +234,20 @@ export class SessionManager {
     return this.getSession(sessionId);
   }
 
-  // Private
-  _cleanupClient(clientSessionToken: string) {
+  // Client
+  getClientBySessionToken(clientSessionToken: string) {
+    return this._clientsMap.get(clientSessionToken) ?? null;
+  }
+
+  terminateClient(clientSessionToken: string) {
+    if (!this._clientsMap.has(clientSessionToken)) {
+      return;
+    }
+
     const client = this._clientsMap.get(clientSessionToken);
     if (client && client.readyState === 1 /*WebSocket.OPEN*/) {
       // For some reason, WebSocket.OPEN is not defined in the ws package on runtime. Strange stuff.
-      client.terminate();
+      client.close(SessionCodeEnum.SESSION_TERMINATED, 'Session terminated');
     }
 
     this._clientsMap.delete(clientSessionToken);

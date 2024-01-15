@@ -18,10 +18,12 @@ const STATE_UPDATE_FPS = 60;
 export class Session {
   private _lastPingTimes: Map<string, number> = new Map();
   private _lastPongTimes: Map<string, number> = new Map();
-
   private _sessionClientTokenToIdCacheMap: Map<string, string> = new Map();
 
   private _state: SessionInterface;
+
+  private _stateUpdateInterval: NodeJS.Timeout;
+  private _pingInterval: NodeJS.Timeout;
 
   private _terminatedCallback: () => void;
 
@@ -40,7 +42,7 @@ export class Session {
     console.log(`[Session] Session "${this._state.id}" initializing ...`);
 
     let lastRawState: SessionInterface | null = null;
-    setInterval(() => {
+    this._stateUpdateInterval = setInterval(() => {
       let doFullUpdate = false;
 
       const state = this.getState();
@@ -67,13 +69,9 @@ export class Session {
     }, 1000 / STATE_UPDATE_FPS);
 
     // Starting the ping loop
-    setInterval(() => {
+    this._pingInterval = setInterval(() => {
       this._sendPingToAllClients();
     }, PING_INTERVAL);
-
-    setTimeout(() => {
-      this.terminate();
-    }, 5000);
   }
 
   get id() {
@@ -84,16 +82,8 @@ export class Session {
     return this._state.accessCode;
   }
 
-  onTerminated(callback: () => void) {
-    this._terminatedCallback = callback;
-  }
-
-  terminate() {
-    console.log(`[Session] Session "${this._state.id}" terminating ...`);
-
-    // TODO: terminate all clients first
-
-    this._terminatedCallback?.();
+  get clients() {
+    return Array.from(this._state.clients.values());
   }
 
   // Events
@@ -136,6 +126,26 @@ export class Session {
     sessionClient.ping = ping > PING_INTERVAL ? PING_INTERVAL : ping;
 
     this._state.clients.set(sessionClient.id, sessionClient);
+  }
+
+  // Termination
+  terminate() {
+    console.log(`[Session] Session "${this._state.id}" terminating ...`);
+
+    const clients = Array.from(this._state.clients.values());
+    for (const client of clients) {
+      sessionManager.terminateClient(client.clientSessionToken);
+    }
+
+    clearInterval(this._stateUpdateInterval);
+    clearInterval(this._pingInterval);
+
+    this._terminatedCallback?.();
+  }
+
+  // Registered callback in SessionManager so it knows when to remove the session from the map
+  registerTerminaltedCallback(terminatedCallback: () => void) {
+    this._terminatedCallback = terminatedCallback;
   }
 
   // State

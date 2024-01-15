@@ -12,6 +12,7 @@ export type SessionStore = {
   // Session
   session: SessionInterface | null;
   setSession: (session: SessionInterface | null) => void;
+  resetSession: () => void;
 };
 
 export const useSessionStore = create<SessionStore>()((set) => ({
@@ -24,4 +25,5 @@ export const useSessionStore = create<SessionStore>()((set) => ({
   // Session
   session: null,
   setSession: (session: SessionInterface | null) => set({ session }),
+  resetSession: () => set({ session: null, sessionId: null, sessionToken: null }),
 }));

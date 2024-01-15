@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ToastContainer } from 'react-toastify';
 
-import { CreateSessionView } from './views/CreateSessionView';
 import { HomeView } from './views/HomeView';
 import { JoinSessionView } from './views/JoinSessionView';
 
@@ -9,9 +8,13 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import { useWakeLock } from 'react-screen-wake-lock';
 
-type View = 'home' | 'create-session' | 'join-session';
+import { useSessionStore } from '../state/sessionStore';
+import { LobbyView } from './views/LobbyView';
+
+type View = 'home' | 'join-session';
 
 function AppInner() {
+  const { session } = useSessionStore();
   const [view, setView] = useState<View>('home');
   const isInitializedRef = useRef(false);
   const { isSupported, request } = useWakeLock();
@@ -28,9 +31,11 @@ function AppInner() {
     }
   }, [isSupported, request]);
 
-  if (view === 'create-session') {
-    return <CreateSessionView />;
-  } else if (view === 'join-session') {
+  if (session) {
+    return <LobbyView />;
+  }
+
+  if (view === 'join-session') {
     return <JoinSessionView />;
   }
 

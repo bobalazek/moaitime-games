@@ -3,10 +3,8 @@ import { toast } from 'react-toastify';
 
 import { useSessionStore } from '../../state/sessionStore';
 import { sessionManager } from '../../utils/SessionManager';
-import { LobbyView } from './LobbyView';
 
 export function JoinSessionView() {
-  const { session } = useSessionStore();
   const [displayName, setDisplayName] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -24,10 +22,6 @@ export function JoinSessionView() {
       setIsJoining(false);
     }
   };
-
-  if (session) {
-    return <LobbyView />;
-  }
 
   return (
     <div className="container m-auto">
