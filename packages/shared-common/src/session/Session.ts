@@ -8,5 +8,4 @@ export interface SessionInterface<TGameState = unknown> {
   gameState?: TGameState;
   hostClientId?: string;
   controllerClientId?: string;
-  _accessPassword?: string;
 }

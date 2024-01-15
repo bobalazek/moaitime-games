@@ -10,7 +10,7 @@ import { useSessionStore } from '../state/sessionStore';
 import { fetchJson } from './FetchHelpers';
 import { webSocketClient } from './WebSocketClient';
 
-type SessionResponseType = { token: string; sessionId: string; sessionAccessCode: string };
+type SessionResponseType = { sessionToken: string; sessionId: string; sessionAccessCode: string };
 
 export class SessionManager {
   private _onStateChangeCallbacks: Array<(state: SessionInterface) => void> = [];
@@ -20,12 +20,12 @@ export class SessionManager {
       throw new Error('Access code is required');
     }
 
-    const { token, setToken, setSessionId, setSession } = useSessionStore.getState();
+    const { sessionToken, setSessionToken, setSessionId, setSession } = useSessionStore.getState();
 
     try {
       const url = new URL(`${API_URL}/session/${accessCode}?byAccessCode=true`);
-      if (token) {
-        url.searchParams.set('token', token);
+      if (sessionToken) {
+        url.searchParams.set('sessionToken', sessionToken);
       }
 
       const response = await fetchJson<SessionResponseType>(url.toString(), {
@@ -37,7 +37,7 @@ export class SessionManager {
         },
       });
 
-      setToken(response.token);
+      setSessionToken(response.sessionToken);
       setSessionId(response.sessionId);
 
       await webSocketClient.connect();
@@ -55,13 +55,13 @@ export class SessionManager {
   }
 
   async createSession(): Promise<string> {
-    const { setToken, setSessionId } = useSessionStore.getState();
+    const { setSessionToken, setSessionId } = useSessionStore.getState();
 
     const response = await fetchJson<SessionResponseType>(`${API_URL}/session`, {
       method: 'POST',
     });
 
-    setToken(response.token);
+    setSessionToken(response.sessionToken);
     setSessionId(response.sessionId);
 
     await this.joinSession(response.sessionAccessCode);

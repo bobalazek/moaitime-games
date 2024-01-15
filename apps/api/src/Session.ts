@@ -30,15 +30,15 @@ export class Session {
       clients: new Map(),
     };
 
-    this.start();
+    this.init();
   }
 
-  start() {
+  init() {
     if (this._isStarted) {
       return;
     }
 
-    console.log(`[API] 🚀 Session ${this._state.id} started`);
+    console.log(`[Session] Session "${this._state.id}" initializing ...`);
 
     // Starting the game loop
 
@@ -77,48 +77,46 @@ export class Session {
     }, PING_INTERVAL);
   }
 
+  get id() {
+    return this._state.id;
+  }
+
+  get accessCode() {
+    return this._state.accessCode;
+  }
+
   dispose() {
+    console.log(`[Session] Session "${this._state.id}" disposing ...`);
+
     // TODO
   }
 
   // Events
-  onMessage(webSocketToken: string, message: unknown) {
+  onMessage(webSocketSessionToken: string, message: unknown) {
     const data = serializer.deserialize(message as string) as { type: string; payload: unknown };
 
     const { type, payload } = data;
 
     if (type === SessionTypeEnum.PONG) {
-      this.onPongMessage(webSocketToken);
+      this.onPongMessage(webSocketSessionToken);
     }
   }
 
-  onError(webSocketToken: string, error: Error) {
-    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
-    if (!sessionClient) {
-      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
-
-      return;
-    }
-
-    this._state.clients.delete(sessionClient.id);
+  onError(webSocketSessionToken: string, error: Error) {
+    this.removeClient(webSocketSessionToken);
   }
 
-  onClose(webSocketToken: string) {
-    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
-    if (!sessionClient) {
-      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
-
-      return;
-    }
-
-    this._state.clients.delete(sessionClient.id);
+  onClose(webSocketSessionToken: string) {
+    this.removeClient(webSocketSessionToken);
   }
 
   // Session Events
-  onPongMessage(webSocketToken: string) {
-    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
+  onPongMessage(webSocketSessionToken: string) {
+    const sessionClient = this.getClientByWebSocketSessionToken(webSocketSessionToken);
     if (!sessionClient) {
-      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
+      console.log(
+        `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
+      );
 
       return;
     }
@@ -152,8 +150,10 @@ export class Session {
   }
 
   // Clients
-  addClient(webSocketToken: string, displayName?: string) {
-    console.log(`[API] 📥 Client with token ${webSocketToken} added to session ${this._state.id}`);
+  addClient(webSocketSessionToken: string, displayName?: string) {
+    console.log(
+      `[Session] Adding client with token "${webSocketSessionToken}" to session "${this.id}" ...`
+    );
 
     if (!displayName) {
       displayName = `Player ${this._state.clients.size + 1}`;
@@ -177,7 +177,7 @@ export class Session {
 
     const sessionClient: SessionClientInterface = {
       id,
-      webSocketToken,
+      webSocketSessionToken,
       displayName,
       deviceType,
       devicePlatform,
@@ -201,21 +201,46 @@ export class Session {
     return sessionClient;
   }
 
+  removeClient(webSocketSessionToken: string) {
+    console.log(
+      `[Session] Removing client with token "${webSocketSessionToken}" from session "${this.id}" ...`
+    );
+
+    const sessionClient = this.getClientByWebSocketSessionToken(webSocketSessionToken);
+    if (!sessionClient) {
+      console.log(
+        `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
+      );
+
+      return;
+    }
+
+    this._state.clients.delete(sessionClient.id);
+  }
+
   // Messages
   sendToSessionClient(sessionClientId: string, type: string, payload: unknown): void {
     const sessionClient = this._state.clients.get(sessionClientId);
     if (!sessionClient) {
-      console.log(`[API] ❌ Client with ID ${sessionClientId} not found`);
+      console.log(`[Session] Client with ID ${sessionClientId} not found in session ${this.id}`);
 
       return;
     }
 
-    const webSocket = webSocketManager.getWebSocketByToken(sessionClient.webSocketToken);
+    const webSocket = webSocketManager.getWebSocketBySessionToken(
+      sessionClient.webSocketSessionToken
+    );
     if (!webSocket) {
-      console.log(`[API] ❌ Client with token ${sessionClient.webSocketToken} not found`);
+      console.log(
+        `[Session] Client with token "${sessionClient.webSocketSessionToken}" not found in session "${this.id}"`
+      );
 
       return;
     }
+
+    console.log(
+      `[Session] Sending "${type}" to client "${sessionClient.id}" in session "${this.id}" ...`
+    );
 
     const message = serializer.serialize({ type, payload });
 
@@ -223,7 +248,7 @@ export class Session {
   }
 
   sendToAllSessionClients(type: string, payload: unknown): void {
-    console.log(`[API] 📩 Sending to all clients: ${type}`);
+    console.log(`[Session] Sending "${type}" to all clients in session "${this.id}" ...`);
 
     for (const [, sessionClient] of this._state.clients) {
       this.sendToSessionClient(sessionClient.id, type, payload);
@@ -231,13 +256,15 @@ export class Session {
   }
 
   // Helpers
-  getClientByWebSocketToken(webSocketToken: string): SessionClientInterface | null {
+  getClientByWebSocketSessionToken(webSocketSessionToken: string): SessionClientInterface | null {
     // TODO: must cache that!
 
     for (const [, sessionClient] of this._state.clients) {
-      if (sessionClient.webSocketToken === webSocketToken) {
-        return sessionClient;
+      if (sessionClient.webSocketSessionToken !== webSocketSessionToken) {
+        continue;
       }
+
+      return sessionClient;
     }
 
     return null;
@@ -253,7 +280,6 @@ export class Session {
     return JSON.parse(serializer.serialize(schema));
   }
 
-  // Ping
   private _sendPingToAllClients() {
     const now = Date.now();
     for (const [, sessionClient] of this._state.clients) {

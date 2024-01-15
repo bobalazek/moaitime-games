@@ -59,9 +59,9 @@ export class WebSocketClient {
 
   private async _createWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
-      const { token, sessionId } = useSessionStore.getState();
+      const { sessionToken, sessionId } = useSessionStore.getState();
 
-      const websocketUrl = `${WS_URL}/session/${sessionId}?token=${token}`;
+      const websocketUrl = `${WS_URL}/session/${sessionId}?sessionToken=${sessionToken}`;
       const websocket = new WebSocket(websocketUrl);
 
       let retries = 0;

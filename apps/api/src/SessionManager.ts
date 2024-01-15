@@ -8,45 +8,53 @@ export type SessionManagerJoinSessionOptions = {
 export class SessionManager {
   private _sessionMap: Map<string, Session> = new Map();
   private _sessionAccessCodeMap: Map<string, string> = new Map();
-  private _webSocketTokenToSessionIdMap: Map<string, string> = new Map();
+  private _webSocketSessionTokenToSessionIdMap: Map<string, string> = new Map();
+
+  constructor() {
+    this.init();
+  }
+
+  init() {
+    // TODO: loop through each session and determine if it's stale
+  }
 
   // Events
-  onMessage(webSocketToken: string, message: string) {
-    const session = this.getSessionForWebSocketToken(webSocketToken);
+  onMessage(webSocketSessionToken: string, message: string) {
+    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
     if (!session) {
       return;
     }
 
-    session.onMessage(webSocketToken, message);
+    session.onMessage(webSocketSessionToken, message);
   }
 
-  onError(webSocketToken: string, error: Error) {
-    const session = this.getSessionForWebSocketToken(webSocketToken);
+  onError(webSocketSessionToken: string, error: Error) {
+    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
     if (!session) {
       return;
     }
 
-    session.onError(webSocketToken, error);
+    session.onError(webSocketSessionToken, error);
 
-    this._webSocketTokenToSessionIdMap.delete(webSocketToken);
+    this._webSocketSessionTokenToSessionIdMap.delete(webSocketSessionToken);
   }
 
-  onClose(webSocketToken: string) {
-    const session = this.getSessionForWebSocketToken(webSocketToken);
+  onClose(webSocketSessionToken: string) {
+    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
     if (!session) {
       return;
     }
 
-    session.onClose(webSocketToken);
+    session.onClose(webSocketSessionToken);
 
-    this._webSocketTokenToSessionIdMap.delete(webSocketToken);
+    this._webSocketSessionTokenToSessionIdMap.delete(webSocketSessionToken);
   }
 
   // Session
   createSession(): Session {
     const id = generateRandomHash(8);
     if (this._sessionMap.has(id)) {
-      throw new Error('Session ID already in use');
+      throw new Error('[SessionManager] Session ID already in use');
     }
 
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
@@ -64,7 +72,7 @@ export class SessionManager {
 
   joinSession(
     sessionId: string,
-    webSocketToken: string,
+    webSocketSessionToken: string,
     options?: SessionManagerJoinSessionOptions
   ) {
     const session = this.getSession(sessionId);
@@ -72,13 +80,13 @@ export class SessionManager {
       throw new Error('Session not found');
     }
 
-    if (this._webSocketTokenToSessionIdMap.has(webSocketToken)) {
+    if (this._webSocketSessionTokenToSessionIdMap.has(webSocketSessionToken)) {
       throw new Error('Client has already joined a session');
     }
 
-    const sessionClient = session.addClient(webSocketToken, options?.displayName);
+    const sessionClient = session.addClient(webSocketSessionToken, options?.displayName);
 
-    this._webSocketTokenToSessionIdMap.set(webSocketToken, sessionId);
+    this._webSocketSessionTokenToSessionIdMap.set(webSocketSessionToken, sessionId);
 
     return sessionClient;
   }
@@ -110,8 +118,8 @@ export class SessionManager {
     session.dispose();
   }
 
-  getSessionForWebSocketToken(webSocketToken: string): Session | null {
-    const sessionId = this._webSocketTokenToSessionIdMap.get(webSocketToken);
+  getSessionForWebSocketSessionToken(webSocketSessionToken: string): Session | null {
+    const sessionId = this._webSocketSessionTokenToSessionIdMap.get(webSocketSessionToken);
     if (!sessionId) {
       return null;
     }

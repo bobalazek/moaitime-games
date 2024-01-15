@@ -10,139 +10,145 @@ const STALE_WEB_SOCKET_LIFETIME = 30000;
 export class WebSocketManager {
   private _webSocketMap: Map<string, WebSocket> = new Map();
   private _webSocketLastActivityMap: Map<string, number> = new Map();
-  private _issuedTokenMap: Map<
-    string,
-    { issuedAt: number; additionalData?: Record<string, unknown> }
-  > = new Map();
+  private _sessionTokensMap: Map<string, { issuedAt: number; data?: Record<string, unknown> }> =
+    new Map();
 
   constructor() {
+    this.init();
+  }
+
+  init() {
     // Garbage collection
     setInterval(() => {
       const now = Date.now();
 
-      for (const [webSocketToken, { issuedAt }] of this._issuedTokenMap) {
+      for (const [webSocketSessionToken, { issuedAt }] of this._sessionTokensMap) {
         if (now - issuedAt > ISSUED_TOKEN_LIFETIME) {
-          console.log(`[API] ❌ Client ${webSocketToken} token expired`);
+          console.log(`[WebSocketManager] Client "${webSocketSessionToken}" token expired`);
 
-          this._issuedTokenMap.delete(webSocketToken);
+          this._sessionTokensMap.delete(webSocketSessionToken);
         }
       }
 
-      for (const [webSocketToken, lastActivityAt] of this._webSocketLastActivityMap) {
+      for (const [webSocketSessionToken, lastActivityAt] of this._webSocketLastActivityMap) {
         if (now - lastActivityAt > STALE_WEB_SOCKET_LIFETIME) {
-          console.log(`[API] ❌ Client ${webSocketToken} timed out`);
+          console.log(`[WebSocketManager] Client "${webSocketSessionToken}" timed out`);
 
-          sessionManager.onClose(webSocketToken);
+          sessionManager.onClose(webSocketSessionToken);
 
-          this._cleanupWebSocket(webSocketToken);
+          this._cleanupWebSocket(webSocketSessionToken);
         }
       }
     }, GARBAGE_COLLECTION_INTERVAL);
   }
 
-  issueToken(additionalData?: Record<string, unknown>) {
+  issueSessionToken(data?: Record<string, unknown>) {
     const token = generateRandomHash(16);
-    if (this._issuedTokenMap.has(token)) {
-      throw new Error('Token already in use');
+    if (this._sessionTokensMap.has(token)) {
+      throw new Error('Session token already in use');
     }
 
-    this._issuedTokenMap.set(token, { issuedAt: Date.now(), additionalData });
+    this._sessionTokensMap.set(token, { issuedAt: Date.now(), data });
 
-    console.log(`[API] ✅ Client ${token} token issued`);
+    console.log(`[WebSocketManager] Client session token "${token}" issued`);
 
     return token;
   }
 
-  updateIssuedToken(token: string, additionalData?: Record<string, unknown>) {
-    if (!this._issuedTokenMap.has(token)) {
-      throw new Error('Token not issued');
+  updateSessionToken(sessionToken: string, data?: Record<string, unknown>) {
+    if (!this._sessionTokensMap.has(sessionToken)) {
+      throw new Error('Session token not issued');
     }
 
-    this._issuedTokenMap.set(token, { issuedAt: Date.now(), additionalData });
+    this._sessionTokensMap.set(sessionToken, { issuedAt: Date.now(), data });
 
-    console.log(`[API] ✅ Client ${token} token updated`);
+    console.log(`[WebSocketManager] Client session token "${sessionToken}" updated`);
   }
 
-  redeemToken(token: string) {
-    if (!this._issuedTokenMap.has(token)) {
-      throw new Error('Token not issued');
+  redeemSessionToken(sessionToken: string) {
+    if (!this._sessionTokensMap.has(sessionToken)) {
+      throw new Error('Session token not issued');
     }
 
-    const { additionalData } = this._issuedTokenMap.get(token) ?? {};
-    this._issuedTokenMap.delete(token);
+    const { data } = this._sessionTokensMap.get(sessionToken) ?? {};
+    this._sessionTokensMap.delete(sessionToken);
 
-    console.log(`[API] ✅ Client ${token} token redeemed`);
+    console.log(`[WebSocketManager] Client "${sessionToken}" session token redeemed`);
 
-    return additionalData;
+    return data;
   }
 
-  onConnection(webSocket: WebSocket, token: string, sessionId: string) {
-    if (!token) {
-      console.log('[API] ❌ No client token provided');
+  onConnection(webSocket: WebSocket, sessionToken: string, sessionId: string) {
+    if (!sessionToken) {
+      console.log('[WebSocketManager] No session token provided');
       return;
     }
 
-    if (!this._issuedTokenMap.has(token)) {
-      console.log(`[API] ❌ Client ${token} token not issued`);
+    if (!this._sessionTokensMap.has(sessionToken)) {
+      console.log(`[WebSocketManager] Client "${sessionToken}" session token not issued`);
       return;
     }
 
     const session = sessionManager.getSession(sessionId);
     if (!session) {
-      console.log(`[API] ❌ Session ${sessionId} not found`);
+      console.log(`[WebSocketManager] Session with id "${sessionId}" not found`);
       return;
     }
 
-    const redeemedTokenData = this.redeemToken(token);
+    const redeemedTokenData = this.redeemSessionToken(sessionToken);
 
-    this._webSocketMap.set(token, webSocket);
-    this._webSocketLastActivityMap.set(token, Date.now());
+    this._webSocketMap.set(sessionToken, webSocket);
+    this._webSocketLastActivityMap.set(sessionToken, Date.now());
 
-    sessionManager.joinSession(sessionId, token, redeemedTokenData);
+    sessionManager.joinSession(sessionId, sessionToken, redeemedTokenData);
 
     console.log(
-      `[API] ✅ Client with token ${token} connected (additionalData: ${JSON.stringify(redeemedTokenData)})`
+      `[WebSocketManager] Client with session token "${sessionToken}" connected (data: ${JSON.stringify(redeemedTokenData)})`
     );
 
-    webSocket.on('message', (message: string) => this._onMessage(token, message));
-    webSocket.on('error', (error) => this._onError(token, error));
-    webSocket.on('close', () => this._onClose(token));
+    webSocket.on('message', (message: string) => this._onMessage(sessionToken, message));
+    webSocket.on('error', (error) => this._onError(sessionToken, error));
+    webSocket.on('close', () => this._onClose(sessionToken));
   }
 
-  getWebSocketByToken(webSocketToken: string) {
-    return this._webSocketMap.get(webSocketToken) ?? null;
+  getWebSocketBySessionToken(webSocketSessionToken: string) {
+    return this._webSocketMap.get(webSocketSessionToken) ?? null;
   }
 
-  _onMessage(webSocketToken: string, message: string) {
-    this._webSocketLastActivityMap.set(webSocketToken, Date.now());
+  // Private
+  _onMessage(webSocketSessionToken: string, message: string) {
+    this._webSocketLastActivityMap.set(webSocketSessionToken, Date.now());
 
-    sessionManager.onMessage(webSocketToken, message);
+    sessionManager.onMessage(webSocketSessionToken, message);
   }
 
-  _onError(webSocketToken: string, error: Error) {
-    console.log(`[API] ❌ Client with token ${webSocketToken} errored: ${error.message}`);
+  _onError(webSocketSessionToken: string, error: Error) {
+    console.log(
+      `[WebSocketManager] Client with token "${webSocketSessionToken}" errored: "${error.message}"`
+    );
 
-    sessionManager.onError(webSocketToken, error);
+    sessionManager.onError(webSocketSessionToken, error);
 
-    this._cleanupWebSocket(webSocketToken);
+    this._cleanupWebSocket(webSocketSessionToken);
   }
 
-  _onClose(webSocketToken: string) {
-    console.log(`[API] ❌ Client with token ${webSocketToken} closed`);
+  _onClose(webSocketSessionToken: string) {
+    console.log(`[WebSocketManager] Client with token "${webSocketSessionToken}" closed`);
 
-    sessionManager.onClose(webSocketToken);
+    sessionManager.onClose(webSocketSessionToken);
 
-    this._cleanupWebSocket(webSocketToken);
+    this._cleanupWebSocket(webSocketSessionToken);
   }
 
-  _cleanupWebSocket(webSocketToken: string) {
-    const webSocket = this._webSocketMap.get(webSocketToken);
-    if (webSocket && webSocket.readyState === WebSocket?.OPEN) {
+  _cleanupWebSocket(webSocketSessionToken: string) {
+    const webSocket = this._webSocketMap.get(webSocketSessionToken);
+    if (webSocket && webSocket.readyState === 1 /*WebSocket.OPEN*/) {
+      // For some reason, WebSocket.OPEN is not defined in the ws package on runtime. Strange stuff.
       webSocket.terminate();
     }
 
-    this._webSocketMap.delete(webSocketToken);
-    this._webSocketLastActivityMap.delete(webSocketToken);
+    this._webSocketMap.delete(webSocketSessionToken);
+    this._webSocketLastActivityMap.delete(webSocketSessionToken);
   }
 }
 

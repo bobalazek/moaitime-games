@@ -3,9 +3,9 @@ import { create } from 'zustand';
 import { SessionInterface } from '@moaitime-games/shared-common';
 
 export type SessionStore = {
-  // Token
-  token: string | null;
-  setToken: (token: string | null) => void;
+  // Session Token
+  sessionToken: string | null;
+  setSessionToken: (sessionToken: string | null) => void;
   // Session ID
   sessionId: string | null;
   setSessionId: (sessionId: string | null) => void;
@@ -15,9 +15,9 @@ export type SessionStore = {
 };
 
 export const useSessionStore = create<SessionStore>()((set) => ({
-  // Token
-  token: null,
-  setToken: (token: string | null) => set({ token }),
+  // Session Token
+  sessionToken: null,
+  setSessionToken: (sessionToken: string | null) => set({ sessionToken }),
   // Session ID
   sessionId: null,
   setSessionId: (sessionId: string | null) => set({ sessionId }),
