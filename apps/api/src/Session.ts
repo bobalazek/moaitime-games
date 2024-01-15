@@ -97,30 +97,30 @@ export class Session {
   }
 
   // Events
-  onMessage(webSocketSessionToken: string, message: unknown) {
+  onMessage(clientSessionToken: string, message: unknown) {
     const data = serializer.deserialize(message as string) as { type: string; payload: unknown };
 
     const { type, payload } = data;
 
     if (type === SessionTypeEnum.PONG) {
-      this.onPongMessage(webSocketSessionToken);
+      this.onPongMessage(clientSessionToken);
     }
   }
 
-  onError(webSocketSessionToken: string, error: Error) {
-    this.removeClient(webSocketSessionToken);
+  onError(clientSessionToken: string, error: Error) {
+    this.removeClient(clientSessionToken);
   }
 
-  onClose(webSocketSessionToken: string) {
-    this.removeClient(webSocketSessionToken);
+  onClose(clientSessionToken: string) {
+    this.removeClient(clientSessionToken);
   }
 
   // Session Events
-  onPongMessage(webSocketSessionToken: string) {
-    const sessionClient = this.getClient(webSocketSessionToken);
+  onPongMessage(clientSessionToken: string) {
+    const sessionClient = this.getClient(clientSessionToken);
     if (!sessionClient) {
       console.log(
-        `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
+        `[Session] Client with token "${clientSessionToken}" not found in session "${this.id}"`
       );
 
       return;
@@ -155,9 +155,9 @@ export class Session {
   }
 
   // Clients
-  addClient(webSocketSessionToken: string, displayName?: string) {
+  addClient(clientSessionToken: string, displayName?: string) {
     console.log(
-      `[Session] Adding client with token "${webSocketSessionToken}" to session "${this.id}" ...`
+      `[Session] Adding client with token "${clientSessionToken}" to session "${this.id}" ...`
     );
 
     if (!displayName) {
@@ -182,7 +182,7 @@ export class Session {
 
     const sessionClient: SessionClientInterface = {
       id,
-      webSocketSessionToken,
+      clientSessionToken,
       displayName,
       deviceType,
       devicePlatform,
@@ -192,7 +192,7 @@ export class Session {
     };
 
     this._state.clients.set(sessionClient.id, sessionClient);
-    this._sessionClientTokenToIdCacheMap.set(webSocketSessionToken, id);
+    this._sessionClientTokenToIdCacheMap.set(clientSessionToken, id);
 
     if (isHost) {
       this.updateState({
@@ -207,26 +207,26 @@ export class Session {
     return sessionClient;
   }
 
-  removeClient(webSocketSessionToken: string) {
+  removeClient(clientSessionToken: string) {
     console.log(
-      `[Session] Removing client with token "${webSocketSessionToken}" from session "${this.id}" ...`
+      `[Session] Removing client with token "${clientSessionToken}" from session "${this.id}" ...`
     );
 
-    const sessionClient = this.getClient(webSocketSessionToken);
+    const sessionClient = this.getClient(clientSessionToken);
     if (!sessionClient) {
       console.log(
-        `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
+        `[Session] Client with token "${clientSessionToken}" not found in session "${this.id}"`
       );
 
       return;
     }
 
     this._state.clients.delete(sessionClient.id);
-    this._sessionClientTokenToIdCacheMap.delete(sessionClient.webSocketSessionToken);
+    this._sessionClientTokenToIdCacheMap.delete(sessionClient.clientSessionToken);
   }
 
-  getClient(webSocketSessionToken: string): SessionClientInterface | null {
-    const sessionClientId = this._sessionClientTokenToIdCacheMap.get(webSocketSessionToken);
+  getClient(clientSessionToken: string): SessionClientInterface | null {
+    const sessionClientId = this._sessionClientTokenToIdCacheMap.get(clientSessionToken);
     if (!sessionClientId) {
       return null;
     }
@@ -243,12 +243,10 @@ export class Session {
       return;
     }
 
-    const webSocket = sessionManager.getWebSocketBySessionToken(
-      sessionClient.webSocketSessionToken
-    );
+    const webSocket = sessionManager.getClientBySessionToken(sessionClient.clientSessionToken);
     if (!webSocket) {
       console.log(
-        `[Session] Client with token "${sessionClient.webSocketSessionToken}" not found in session "${this.id}"`
+        `[Session] Client with token "${sessionClient.clientSessionToken}" not found in session "${this.id}"`
       );
 
       return;

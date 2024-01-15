@@ -15,21 +15,23 @@ export class SessionManager {
   // The map of all active sessions
   private _sessionMap: Map<string, Session> = new Map();
 
-  // The issued session tokens that are needed when joining a session
-  private _sessionTokensMap: Map<string, { issuedAt: number; data?: Record<string, unknown> }> =
-    new Map();
-
   // A cached map of all the current
   private _sessionAccessCodeCacheMap: Map<string, string> = new Map();
 
   // A map of all the current websocket connections
-  private _webSocketMap: Map<string, WebSocket> = new Map();
+  private _clientsMap: Map<string, WebSocket> = new Map();
 
   // A map of all the current websocket connections and their last activity
-  private _webSocketLastActivityMap: Map<string, number> = new Map();
+  private _clientsLastActivityMap: Map<string, number> = new Map();
+
+  // The issued session tokens that are needed when joining a session
+  private _clientSessionTokensMap: Map<
+    string,
+    { issuedAt: number; data?: Record<string, unknown> }
+  > = new Map();
 
   // A cached map of all the websocket/session tokens, that are currently connected to a session
-  private _webSocketSessionTokenToSessionIdCacheMap: Map<string, string> = new Map();
+  private _clientSessionTokenToSessionIdCacheMap: Map<string, string> = new Map();
 
   constructor() {
     this.init();
@@ -40,21 +42,21 @@ export class SessionManager {
     setInterval(() => {
       const now = Date.now();
 
-      for (const [webSocketSessionToken, { issuedAt }] of this._sessionTokensMap) {
+      for (const [clientSessionToken, { issuedAt }] of this._clientSessionTokensMap) {
         if (now - issuedAt > ISSUED_TOKEN_LIFETIME) {
-          console.log(`[SessionManager] Client "${webSocketSessionToken}" token expired`);
+          console.log(`[SessionManager] Client "${clientSessionToken}" token expired`);
 
-          this._sessionTokensMap.delete(webSocketSessionToken);
+          this._clientSessionTokensMap.delete(clientSessionToken);
         }
       }
 
-      for (const [webSocketSessionToken, lastActivityAt] of this._webSocketLastActivityMap) {
+      for (const [clientSessionToken, lastActivityAt] of this._clientsLastActivityMap) {
         if (now - lastActivityAt > STALE_WEB_SOCKET_LIFETIME) {
-          console.log(`[SessionManager] Client "${webSocketSessionToken}" timed out`);
+          console.log(`[SessionManager] Client "${clientSessionToken}" timed out`);
 
-          sessionManager.onClose(webSocketSessionToken);
+          sessionManager.onClose(clientSessionToken);
 
-          this._cleanupWebSocket(webSocketSessionToken);
+          this._cleanupClient(clientSessionToken);
         }
       }
     }, GARBAGE_COLLECTION_INTERVAL);
@@ -63,13 +65,13 @@ export class SessionManager {
   }
 
   // Events
-  onConnection(webSocket: WebSocket, sessionToken: string, sessionId: string) {
+  onConnection(client: WebSocket, sessionToken: string, sessionId: string) {
     if (!sessionToken) {
       console.log('[SessionManager] No session token provided');
       return;
     }
 
-    if (!this._sessionTokensMap.has(sessionToken)) {
+    if (!this._clientSessionTokensMap.has(sessionToken)) {
       console.log(`[SessionManager] Client "${sessionToken}" session token not issued`);
       return;
     }
@@ -82,8 +84,8 @@ export class SessionManager {
 
     const redeemedTokenData = this.redeemSessionToken(sessionToken);
 
-    this._webSocketMap.set(sessionToken, webSocket);
-    this._webSocketLastActivityMap.set(sessionToken, Date.now());
+    this._clientsMap.set(sessionToken, client);
+    this._clientsLastActivityMap.set(sessionToken, Date.now());
 
     this.joinSession(sessionId, sessionToken, redeemedTokenData);
 
@@ -91,46 +93,46 @@ export class SessionManager {
       `[SessionManager] Client with session token "${sessionToken}" connected (data: ${JSON.stringify(redeemedTokenData)})`
     );
 
-    webSocket.on('message', (message: string) => this.onMessage(sessionToken, message));
-    webSocket.on('error', (error) => this.onError(sessionToken, error));
-    webSocket.on('close', () => this.onClose(sessionToken));
+    client.on('message', (message: string) => this.onMessage(sessionToken, message));
+    client.on('error', (error) => this.onError(sessionToken, error));
+    client.on('close', () => this.onClose(sessionToken));
   }
 
-  onMessage(webSocketSessionToken: string, message: string) {
-    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
+  onMessage(clientSessionToken: string, message: string) {
+    const session = this.getSessionForClientSessionToken(clientSessionToken);
     if (!session) {
       return;
     }
 
-    session.onMessage(webSocketSessionToken, message);
+    session.onMessage(clientSessionToken, message);
   }
 
-  onError(webSocketSessionToken: string, error: Error) {
-    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
+  onError(clientSessionToken: string, error: Error) {
+    const session = this.getSessionForClientSessionToken(clientSessionToken);
     if (!session) {
       return;
     }
 
-    session.onError(webSocketSessionToken, error);
+    session.onError(clientSessionToken, error);
   }
 
-  onClose(webSocketSessionToken: string) {
-    const session = this.getSessionForWebSocketSessionToken(webSocketSessionToken);
+  onClose(clientSessionToken: string) {
+    const session = this.getSessionForClientSessionToken(clientSessionToken);
     if (!session) {
       return;
     }
 
-    session.onClose(webSocketSessionToken);
+    session.onClose(clientSessionToken);
   }
 
   // Session Tokens
   issueSessionToken(data?: Record<string, unknown>) {
     const token = generateRandomHash(16);
-    if (this._sessionTokensMap.has(token)) {
+    if (this._clientSessionTokensMap.has(token)) {
       throw new Error('Session token already in use');
     }
 
-    this._sessionTokensMap.set(token, { issuedAt: Date.now(), data });
+    this._clientSessionTokensMap.set(token, { issuedAt: Date.now(), data });
 
     console.log(`[SessionManager] Client session token "${token}" issued`);
 
@@ -138,30 +140,30 @@ export class SessionManager {
   }
 
   updateSessionToken(sessionToken: string, data?: Record<string, unknown>) {
-    if (!this._sessionTokensMap.has(sessionToken)) {
+    if (!this._clientSessionTokensMap.has(sessionToken)) {
       throw new Error('Session token not issued');
     }
 
-    this._sessionTokensMap.set(sessionToken, { issuedAt: Date.now(), data });
+    this._clientSessionTokensMap.set(sessionToken, { issuedAt: Date.now(), data });
 
     console.log(`[SessionManager] Client session token "${sessionToken}" updated`);
   }
 
   redeemSessionToken(sessionToken: string) {
-    if (!this._sessionTokensMap.has(sessionToken)) {
+    if (!this._clientSessionTokensMap.has(sessionToken)) {
       throw new Error('Session token not issued');
     }
 
-    const { data } = this._sessionTokensMap.get(sessionToken) ?? {};
-    this._sessionTokensMap.delete(sessionToken);
+    const { data } = this._clientSessionTokensMap.get(sessionToken) ?? {};
+    this._clientSessionTokensMap.delete(sessionToken);
 
     console.log(`[SessionManager] Client "${sessionToken}" session token redeemed`);
 
     return data;
   }
 
-  getWebSocketBySessionToken(webSocketSessionToken: string) {
-    return this._webSocketMap.get(webSocketSessionToken) ?? null;
+  getClientBySessionToken(clientSessionToken: string) {
+    return this._clientsMap.get(clientSessionToken) ?? null;
   }
 
   // Session
@@ -193,7 +195,7 @@ export class SessionManager {
 
   joinSession(
     sessionId: string,
-    webSocketSessionToken: string,
+    clientSessionToken: string,
     options?: SessionManagerJoinSessionOptions
   ) {
     const session = this.getSession(sessionId);
@@ -201,13 +203,13 @@ export class SessionManager {
       throw new Error('Session not found');
     }
 
-    if (this._webSocketSessionTokenToSessionIdCacheMap.has(webSocketSessionToken)) {
+    if (this._clientSessionTokenToSessionIdCacheMap.has(clientSessionToken)) {
       throw new Error('Client has already joined a session');
     }
 
-    const sessionClient = session.addClient(webSocketSessionToken, options?.displayName);
+    const sessionClient = session.addClient(clientSessionToken, options?.displayName);
 
-    this._webSocketSessionTokenToSessionIdCacheMap.set(webSocketSessionToken, sessionId);
+    this._clientSessionTokenToSessionIdCacheMap.set(clientSessionToken, sessionId);
 
     return sessionClient;
   }
@@ -225,8 +227,8 @@ export class SessionManager {
     return this.getSession(sessionId);
   }
 
-  getSessionForWebSocketSessionToken(webSocketSessionToken: string): Session | null {
-    const sessionId = this._webSocketSessionTokenToSessionIdCacheMap.get(webSocketSessionToken);
+  getSessionForClientSessionToken(clientSessionToken: string): Session | null {
+    const sessionId = this._clientSessionTokenToSessionIdCacheMap.get(clientSessionToken);
     if (!sessionId) {
       return null;
     }
@@ -235,16 +237,16 @@ export class SessionManager {
   }
 
   // Private
-  _cleanupWebSocket(webSocketSessionToken: string) {
-    const webSocket = this._webSocketMap.get(webSocketSessionToken);
-    if (webSocket && webSocket.readyState === 1 /*WebSocket.OPEN*/) {
+  _cleanupClient(clientSessionToken: string) {
+    const client = this._clientsMap.get(clientSessionToken);
+    if (client && client.readyState === 1 /*WebSocket.OPEN*/) {
       // For some reason, WebSocket.OPEN is not defined in the ws package on runtime. Strange stuff.
-      webSocket.terminate();
+      client.terminate();
     }
 
-    this._webSocketMap.delete(webSocketSessionToken);
-    this._webSocketLastActivityMap.delete(webSocketSessionToken);
-    this._webSocketSessionTokenToSessionIdCacheMap.delete(webSocketSessionToken);
+    this._clientsMap.delete(clientSessionToken);
+    this._clientsLastActivityMap.delete(clientSessionToken);
+    this._clientSessionTokenToSessionIdCacheMap.delete(clientSessionToken);
   }
 }
 

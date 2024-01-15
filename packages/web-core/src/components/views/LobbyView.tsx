@@ -11,7 +11,7 @@ export function LobbyView() {
 
   const accessCode = session.accessCode.replace(/(.{3})/g, '$1 ').trim();
   const clients = Array.from(session.clients.values());
-  const myClient = clients.find((c) => c.webSocketSessionToken === sessionToken);
+  const myClient = clients.find((c) => c.clientSessionToken === sessionToken);
 
   const isHost = session.hostClientId === myClient?.id;
   const isController = session.controllerClientId === myClient?.id;
@@ -46,7 +46,7 @@ export function LobbyView() {
             <div className="flex items-center justify-center gap-2 text-2xl">
               {clients.map((client) => {
                 const isClientHost = client.id === session.hostClientId;
-                const isClientMe = client.webSocketSessionToken === sessionToken;
+                const isClientMe = client.clientSessionToken === sessionToken;
                 const isClientController = client.id === session.controllerClientId;
 
                 return (

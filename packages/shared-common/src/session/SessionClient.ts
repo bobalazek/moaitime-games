@@ -3,7 +3,7 @@ import { DeviceTypeEnum } from '../core/DeviceTypeEnum';
 
 export interface SessionClientInterface {
   id: string;
-  webSocketSessionToken: string;
+  clientSessionToken: string;
   displayName: string;
   deviceType: DeviceTypeEnum;
   devicePlatform: DevicePlatformEnum;
