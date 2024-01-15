@@ -38,7 +38,12 @@ export function JoinSessionView() {
             type="text"
             placeholder="Display name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(event) => setDisplayName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                onJoinButtonClick();
+              }
+            }}
             className="rounded border border-gray-400 p-2"
           />
         </div>
@@ -47,7 +52,12 @@ export function JoinSessionView() {
             type="number"
             placeholder="Access code"
             value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
+            onChange={(event) => setAccessCode(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                onJoinButtonClick();
+              }
+            }}
             className="rounded border border-gray-400 p-2"
           />
         </div>
