@@ -19,7 +19,11 @@ export class Session {
   private _lastPingTimes: Map<string, number> = new Map();
   private _lastPongTimes: Map<string, number> = new Map();
 
+  private _sessionClientTokenToIdCacheMap: Map<string, string> = new Map();
+
   private _state: SessionInterface;
+
+  private _terminatedCallback: () => void;
 
   constructor(id: string, accessCode: string) {
     this._state = {
@@ -80,10 +84,16 @@ export class Session {
     return this._state.accessCode;
   }
 
+  onTerminated(callback: () => void) {
+    this._terminatedCallback = callback;
+  }
+
   terminate() {
     console.log(`[Session] Session "${this._state.id}" terminating ...`);
 
-    // TODO
+    // TODO: terminate all clients first
+
+    this._terminatedCallback?.();
   }
 
   // Events
@@ -182,6 +192,7 @@ export class Session {
     };
 
     this._state.clients.set(sessionClient.id, sessionClient);
+    this._sessionClientTokenToIdCacheMap.set(webSocketSessionToken, id);
 
     if (isHost) {
       this.updateState({
@@ -211,20 +222,16 @@ export class Session {
     }
 
     this._state.clients.delete(sessionClient.id);
+    this._sessionClientTokenToIdCacheMap.delete(sessionClient.webSocketSessionToken);
   }
 
   getClient(webSocketSessionToken: string): SessionClientInterface | null {
-    // TODO: must cache that!
-
-    for (const [, sessionClient] of this._state.clients) {
-      if (sessionClient.webSocketSessionToken !== webSocketSessionToken) {
-        continue;
-      }
-
-      return sessionClient;
+    const sessionClientId = this._sessionClientTokenToIdCacheMap.get(webSocketSessionToken);
+    if (!sessionClientId) {
+      return null;
     }
 
-    return null;
+    return this._state.clients.get(sessionClientId) ?? null;
   }
 
   // Messages

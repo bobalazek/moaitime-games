@@ -12,14 +12,24 @@ const ISSUED_TOKEN_LIFETIME = 10000;
 const STALE_WEB_SOCKET_LIFETIME = 30000;
 
 export class SessionManager {
+  // The map of all active sessions
   private _sessionMap: Map<string, Session> = new Map();
-  private _sessionAccessCodeMap: Map<string, string> = new Map();
 
-  private _webSocketSessionTokenToSessionIdMap: Map<string, string> = new Map();
-  private _webSocketMap: Map<string, WebSocket> = new Map();
-  private _webSocketLastActivityMap: Map<string, number> = new Map();
+  // The issued session tokens that are needed when joining a session
   private _sessionTokensMap: Map<string, { issuedAt: number; data?: Record<string, unknown> }> =
     new Map();
+
+  // A cached map of all the current
+  private _sessionAccessCodeCacheMap: Map<string, string> = new Map();
+
+  // A map of all the current websocket connections
+  private _webSocketMap: Map<string, WebSocket> = new Map();
+
+  // A map of all the current websocket connections and their last activity
+  private _webSocketLastActivityMap: Map<string, number> = new Map();
+
+  // A cached map of all the websocket/session tokens, that are currently connected to a session
+  private _webSocketSessionTokenToSessionIdCacheMap: Map<string, string> = new Map();
 
   constructor() {
     this.init();
@@ -64,7 +74,7 @@ export class SessionManager {
       return;
     }
 
-    const session = sessionManager.getSession(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) {
       console.log(`[SessionManager] Session with id "${sessionId}" not found`);
       return;
@@ -75,15 +85,15 @@ export class SessionManager {
     this._webSocketMap.set(sessionToken, webSocket);
     this._webSocketLastActivityMap.set(sessionToken, Date.now());
 
-    sessionManager.joinSession(sessionId, sessionToken, redeemedTokenData);
+    this.joinSession(sessionId, sessionToken, redeemedTokenData);
 
     console.log(
       `[SessionManager] Client with session token "${sessionToken}" connected (data: ${JSON.stringify(redeemedTokenData)})`
     );
 
-    webSocket.on('message', (message: string) => this._onMessage(sessionToken, message));
-    webSocket.on('error', (error) => this._onError(sessionToken, error));
-    webSocket.on('close', () => this._onClose(sessionToken));
+    webSocket.on('message', (message: string) => this.onMessage(sessionToken, message));
+    webSocket.on('error', (error) => this.onError(sessionToken, error));
+    webSocket.on('close', () => this.onClose(sessionToken));
   }
 
   onMessage(webSocketSessionToken: string, message: string) {
@@ -102,8 +112,6 @@ export class SessionManager {
     }
 
     session.onError(webSocketSessionToken, error);
-
-    this._webSocketSessionTokenToSessionIdMap.delete(webSocketSessionToken);
   }
 
   onClose(webSocketSessionToken: string) {
@@ -113,8 +121,6 @@ export class SessionManager {
     }
 
     session.onClose(webSocketSessionToken);
-
-    this._webSocketSessionTokenToSessionIdMap.delete(webSocketSessionToken);
   }
 
   // Session Tokens
@@ -166,14 +172,21 @@ export class SessionManager {
     }
 
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
-    if (this._sessionAccessCodeMap.has(accessCode)) {
+    if (this._sessionAccessCodeCacheMap.has(accessCode)) {
       throw new Error('Access code already in use');
     }
 
     const session = new Session(id, accessCode);
 
+    session.onTerminated(() => {
+      console.log(`[SessionManager] Session "${id}" terminated`);
+
+      this._sessionMap.delete(id);
+      this._sessionAccessCodeCacheMap.delete(accessCode);
+    });
+
     this._sessionMap.set(id, session);
-    this._sessionAccessCodeMap.set(accessCode, id);
+    this._sessionAccessCodeCacheMap.set(accessCode, id);
 
     return session;
   }
@@ -188,13 +201,13 @@ export class SessionManager {
       throw new Error('Session not found');
     }
 
-    if (this._webSocketSessionTokenToSessionIdMap.has(webSocketSessionToken)) {
+    if (this._webSocketSessionTokenToSessionIdCacheMap.has(webSocketSessionToken)) {
       throw new Error('Client has already joined a session');
     }
 
     const sessionClient = session.addClient(webSocketSessionToken, options?.displayName);
 
-    this._webSocketSessionTokenToSessionIdMap.set(webSocketSessionToken, sessionId);
+    this._webSocketSessionTokenToSessionIdCacheMap.set(webSocketSessionToken, sessionId);
 
     return sessionClient;
   }
@@ -204,7 +217,7 @@ export class SessionManager {
   }
 
   getSessionByAccessCode(sessionAccessCode: string): Session | null {
-    const sessionId = this._sessionAccessCodeMap.get(sessionAccessCode);
+    const sessionId = this._sessionAccessCodeCacheMap.get(sessionAccessCode);
     if (!sessionId) {
       return null;
     }
@@ -212,22 +225,8 @@ export class SessionManager {
     return this.getSession(sessionId);
   }
 
-  disposeSession(sessionId: string) {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      return;
-    }
-
-    const sessionState = session.getState();
-
-    this._sessionMap.delete(sessionId);
-    this._sessionAccessCodeMap.delete(sessionState.accessCode);
-
-    session.terminate();
-  }
-
   getSessionForWebSocketSessionToken(webSocketSessionToken: string): Session | null {
-    const sessionId = this._webSocketSessionTokenToSessionIdMap.get(webSocketSessionToken);
+    const sessionId = this._webSocketSessionTokenToSessionIdCacheMap.get(webSocketSessionToken);
     if (!sessionId) {
       return null;
     }
@@ -236,30 +235,6 @@ export class SessionManager {
   }
 
   // Private
-  _onMessage(webSocketSessionToken: string, message: string) {
-    this._webSocketLastActivityMap.set(webSocketSessionToken, Date.now());
-
-    sessionManager.onMessage(webSocketSessionToken, message);
-  }
-
-  _onError(webSocketSessionToken: string, error: Error) {
-    console.log(
-      `[SessionManager] Client with token "${webSocketSessionToken}" errored: "${error.message}"`
-    );
-
-    sessionManager.onError(webSocketSessionToken, error);
-
-    this._cleanupWebSocket(webSocketSessionToken);
-  }
-
-  _onClose(webSocketSessionToken: string) {
-    console.log(`[SessionManager] Client with token "${webSocketSessionToken}" closed`);
-
-    sessionManager.onClose(webSocketSessionToken);
-
-    this._cleanupWebSocket(webSocketSessionToken);
-  }
-
   _cleanupWebSocket(webSocketSessionToken: string) {
     const webSocket = this._webSocketMap.get(webSocketSessionToken);
     if (webSocket && webSocket.readyState === 1 /*WebSocket.OPEN*/) {
@@ -269,6 +244,7 @@ export class SessionManager {
 
     this._webSocketMap.delete(webSocketSessionToken);
     this._webSocketLastActivityMap.delete(webSocketSessionToken);
+    this._webSocketSessionTokenToSessionIdCacheMap.delete(webSocketSessionToken);
   }
 }
 

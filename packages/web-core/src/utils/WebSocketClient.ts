@@ -8,22 +8,21 @@ export interface WebSocketClientOptions {
 export class WebSocketClient {
   private _url: string;
   private _options: WebSocketClientOptions;
-
   private _client: WebSocket | null = null;
-  private _isReconnecting: boolean = false;
 
+  private _isReconnecting: boolean = false;
   private _listeners: ((data: unknown) => void)[] = [];
 
-  constructor(url: string, options: Partial<WebSocketClientOptions> = {}) {
+  constructor(url: string, options?: Partial<WebSocketClientOptions>) {
     this._url = url;
     this._options = {
-      maxRetries: options.maxRetries ?? 5,
-      retryInterval: options.retryInterval ?? 200,
+      maxRetries: options?.maxRetries ?? 5,
+      retryInterval: options?.retryInterval ?? 200,
     };
   }
 
   async connect() {
-    await this.getClient();
+    return this.getClient();
   }
 
   async getClient(): Promise<WebSocket> {
