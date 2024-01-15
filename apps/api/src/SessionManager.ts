@@ -58,7 +58,11 @@ export class SessionManager {
 
           sessionManager.onClose(clientSessionToken);
 
-          this.terminateClient(clientSessionToken);
+          this.terminateClient(
+            clientSessionToken,
+            SessionCodeEnum.SESSION_CLIENT_TIMEOUT,
+            'Client timed out'
+          );
         }
       }
     }, GARBAGE_COLLECTION_INTERVAL);
@@ -105,6 +109,8 @@ export class SessionManager {
     if (!session) {
       return;
     }
+
+    this._clientsLastActivityMap.set(clientSessionToken, Date.now());
 
     session.onMessage(clientSessionToken, message);
   }
@@ -239,7 +245,7 @@ export class SessionManager {
     return this._clientsMap.get(clientSessionToken) ?? null;
   }
 
-  terminateClient(clientSessionToken: string) {
+  terminateClient(clientSessionToken: string, code: number, reason?: string) {
     if (!this._clientsMap.has(clientSessionToken)) {
       return;
     }
@@ -247,7 +253,7 @@ export class SessionManager {
     const client = this._clientsMap.get(clientSessionToken);
     if (client && client.readyState === 1 /*WebSocket.OPEN*/) {
       // For some reason, WebSocket.OPEN is not defined in the ws package on runtime. Strange stuff.
-      client.close(SessionCodeEnum.SESSION_TERMINATED, 'Session terminated');
+      client.close(code, reason);
     }
 
     this._clientsMap.delete(clientSessionToken);

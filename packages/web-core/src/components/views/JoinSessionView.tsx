@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
-import { useSessionStore } from '../../state/sessionStore';
 import { sessionManager } from '../../utils/SessionManager';
 
 export function JoinSessionView() {

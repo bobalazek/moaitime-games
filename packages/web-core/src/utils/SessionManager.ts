@@ -16,8 +16,6 @@ type SessionResponseType = { sessionToken: string; sessionId: string; sessionAcc
 export class SessionManager {
   private _webSocketClient?: WebSocket;
 
-  private _onStateChangeCallbacks: Array<(state: SessionInterface) => void> = [];
-
   async joinSession(accessCode: string, data?: Record<string, unknown>): Promise<string> {
     if (!accessCode) {
       throw new Error('Access code is required');
@@ -68,14 +66,6 @@ export class SessionManager {
     return response.sessionId;
   }
 
-  onStateChange(callback: (state: SessionInterface) => void) {
-    this._onStateChangeCallbacks.push(callback);
-  }
-
-  offStateChange(callback: (state: SessionInterface) => void) {
-    this._onStateChangeCallbacks = this._onStateChangeCallbacks.filter((cb) => cb !== callback);
-  }
-
   send(type: SessionTypeEnum, payload?: unknown) {
     if (!this._webSocketClient) {
       throw new Error('WebSocket connection not established');
@@ -87,7 +77,7 @@ export class SessionManager {
   // WebSocket
   async _connectToWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const { sessionToken, sessionId, resetSession } = useSessionStore.getState();
+      const { sessionToken, sessionId, setSession, resetSession } = useSessionStore.getState();
       if (!sessionId) {
         throw new Error('Session required');
       }
@@ -114,16 +104,13 @@ export class SessionManager {
         if (data.type === SessionTypeEnum.PING) {
           this.send(SessionTypeEnum.PONG);
         } else if (data.type === SessionTypeEnum.FULL_STATE_UPDATE) {
-          for (const callback of this._onStateChangeCallbacks) {
-            callback(data.payload as SessionInterface);
-          }
+          setSession(data.payload as SessionInterface);
         }
       };
 
       webSocketClient.onerror = () => {
         resetSession();
 
-        this._onStateChangeCallbacks = [];
         this._webSocketClient = undefined;
 
         toast.error('Could not establish connection to server. Please refresh the page.');
@@ -132,9 +119,10 @@ export class SessionManager {
       };
 
       webSocketClient.onclose = (event) => {
+        console.log(event);
+
         resetSession();
 
-        this._onStateChangeCallbacks = [];
         this._webSocketClient = undefined;
 
         toast.error(

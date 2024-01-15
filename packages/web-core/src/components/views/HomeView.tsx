@@ -1,20 +1,11 @@
 import { toast } from 'react-toastify';
 
-import { useSessionStore } from '../../state/sessionStore';
 import { sessionManager } from '../../utils/SessionManager';
 
 export function HomeView({ setView }: { setView: (view: string) => void }) {
-  const { setSessionId, setSession } = useSessionStore();
-
   const onStartNewSession = async () => {
     try {
-      const sessionId = await sessionManager.createSession();
-
-      setSessionId(sessionId);
-
-      sessionManager.onStateChange((updatedSession) => {
-        setSession(updatedSession);
-      });
+      await sessionManager.createSession();
     } catch (error: unknown) {
       toast.error(
         error instanceof Error ? error.message : 'Something went wrong. Please try again later.'
