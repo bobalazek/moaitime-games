@@ -3,7 +3,6 @@ import { Instance } from 'express-ws';
 import { WebSocket } from 'ws';
 
 import { sessionManager } from './SessionManager';
-import { webSocketManager } from './WebSocketManager';
 
 export const addRoutes = (app: Instance['app']) => {
   // HTTP
@@ -19,7 +18,7 @@ export const addRoutes = (app: Instance['app']) => {
 
   app.post('/session', (_, res) => {
     try {
-      const sessionToken = webSocketManager.issueSessionToken();
+      const sessionToken = sessionManager.issueSessionToken();
       const session = sessionManager.createSession();
       const sessionState = session.getState();
 
@@ -57,7 +56,7 @@ export const addRoutes = (app: Instance['app']) => {
 
       let issuedSessionToken = sessionToken as string | undefined;
       if (!issuedSessionToken) {
-        issuedSessionToken = webSocketManager.issueSessionToken();
+        issuedSessionToken = sessionManager.issueSessionToken();
       }
 
       if (body && Object.keys(body).length > 0) {
@@ -69,7 +68,7 @@ export const addRoutes = (app: Instance['app']) => {
           }
         }
 
-        webSocketManager.updateSessionToken(issuedSessionToken, body);
+        sessionManager.updateSessionToken(issuedSessionToken, body);
       }
 
       res.json({
@@ -105,6 +104,6 @@ export const addRoutes = (app: Instance['app']) => {
       return;
     }
 
-    webSocketManager.onConnection(webSocket, sessionToken as string, sessionId);
+    sessionManager.onConnection(webSocket, sessionToken as string, sessionId);
   });
 };

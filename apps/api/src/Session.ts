@@ -10,7 +10,7 @@ import {
 } from '@moaitime-games/shared-common';
 
 import { generateRandomHash } from './Helpers';
-import { webSocketManager } from './WebSocketManager';
+import { sessionManager } from './SessionManager';
 
 const PING_INTERVAL = 2000;
 const STATE_UPDATE_FPS = 60;
@@ -236,7 +236,7 @@ export class Session {
       return;
     }
 
-    const webSocket = webSocketManager.getWebSocketBySessionToken(
+    const webSocket = sessionManager.getWebSocketBySessionToken(
       sessionClient.webSocketSessionToken
     );
     if (!webSocket) {
