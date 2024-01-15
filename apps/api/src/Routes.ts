@@ -6,6 +6,7 @@ import { sessionManager } from './SessionManager';
 import { webSocketManager } from './WebSocketManager';
 
 export const addRoutes = (app: Instance['app']) => {
+  // HTTP
   app.get('/', (_, res) => {
     res.json({ hello: 'world' });
   });
@@ -77,6 +78,7 @@ export const addRoutes = (app: Instance['app']) => {
     }
   });
 
+  // WebSocket
   app.ws('/ws/session/:sessionId', (webSocket: WebSocket, req) => {
     const { sessionId } = req.params;
     const { sessionToken } = req.query;

@@ -6,6 +6,6 @@ export interface SessionInterface<TGameState = unknown> {
   clients: Map<string, SessionClientInterface>;
   createdAt: number;
   gameState?: TGameState;
-  hostClientId?: string;
-  controllerClientId?: string;
+  hostClientId?: string; // Who is the host of this session?
+  controllerClientId?: string; // Who is the controller of this session?
 }
