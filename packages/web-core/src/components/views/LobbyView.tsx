@@ -10,8 +10,8 @@ export function LobbyView() {
   }
 
   const accessCode = session.accessCode.replace(/(.{3})/g, '$1 ').trim();
-  const clients = Array.from(session.clients.values());
-  const myClient = clients.find((c) => c.clientSessionToken === sessionToken);
+  const clients = Object.values(session.clients);
+  const myClient = clients.find((client) => client.clientSessionToken === sessionToken);
 
   const isHost = session.hostClientId === myClient?.id;
   const isController = session.controllerClientId === myClient?.id;
@@ -60,7 +60,6 @@ export function LobbyView() {
                     <span>{client.displayName}</span>
                     {isClientHost && <span>📺</span>}
                     {isClientController && <span>🎮</span>}
-                    {isClientMe && !isClientHost && <span>👋</span>}
                     <span className="absolute right-0 top-0 flex h-6 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-black">
                       {client.ping}
                     </span>

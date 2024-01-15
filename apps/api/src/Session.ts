@@ -5,6 +5,7 @@ import {
   DeviceTypeEnum,
   serializer,
   SessionClientInterface,
+  SessionCodeEnum,
   SessionInterface,
   SessionTypeEnum,
 } from '@moaitime-games/shared-common';
@@ -13,14 +14,16 @@ import { generateRandomHash } from './Helpers';
 import { sessionManager } from './SessionManager';
 
 const PING_INTERVAL = 2000;
-const STATE_UPDATE_FPS = 60;
+const STATE_UPDATE_FPS = 30;
 
 export class Session {
+  private _state: SessionInterface;
+
   private _lastPingTimes: Map<string, number> = new Map();
   private _lastPongTimes: Map<string, number> = new Map();
-  private _sessionClientTokenToIdCacheMap: Map<string, string> = new Map();
 
-  private _state: SessionInterface;
+  private _sessionClientRequiringFullStateUpdateSet: Set<string> = new Set();
+  private _sessionClientTokenToIdCacheMap: Map<string, string> = new Map();
 
   private _stateUpdateInterval: NodeJS.Timeout;
   private _pingInterval: NodeJS.Timeout;
@@ -32,7 +35,7 @@ export class Session {
       id,
       accessCode,
       createdAt: Date.now(),
-      clients: new Map(),
+      clients: {},
     };
 
     this.init();
@@ -41,31 +44,55 @@ export class Session {
   init() {
     console.log(`[Session] Session "${this._state.id}" initializing ...`);
 
-    let lastRawState: SessionInterface | null = null;
+    let lastState: SessionInterface | null = null;
     this._stateUpdateInterval = setInterval(() => {
-      let doFullUpdate = false;
+      const currentState = this._state;
 
-      const state = this.getState();
-      const rawState = this._toRawJson(state);
+      if (!lastState) {
+        lastState = serializer.deepClone(currentState);
 
-      if (!lastRawState) {
-        doFullUpdate = true;
+        for (const sessionClient of Object.values(this._state.clients)) {
+          this.sendToSessionClient(
+            sessionClient.id,
+            SessionTypeEnum.FULL_STATE_UPDATE,
+            currentState
+          );
 
-        lastRawState = rawState;
+          this._sessionClientRequiringFullStateUpdateSet.delete(sessionClient.id);
+        }
       } else {
-        const delta = compare(lastRawState, rawState);
+        const delta = compare(lastState, currentState);
         if (delta.length > 0) {
-          doFullUpdate = true;
+          lastState = serializer.deepClone(currentState);
 
-          lastRawState = rawState;
+          for (const sessionClient of Object.values(this._state.clients)) {
+            if (this._sessionClientRequiringFullStateUpdateSet.has(sessionClient.id)) {
+              continue;
+            }
+
+            this.sendToSessionClient(sessionClient.id, SessionTypeEnum.DELTA_STATE_UPDATE, delta);
+          }
+        } else {
+          // If a new client has joined, that one will need a full update first
+          if (this._sessionClientRequiringFullStateUpdateSet.size === 0) {
+            return;
+          }
+
+          for (const sessionClient of Object.values(this._state.clients)) {
+            if (!this._sessionClientRequiringFullStateUpdateSet.has(sessionClient.id)) {
+              continue;
+            }
+
+            this.sendToSessionClient(
+              sessionClient.id,
+              SessionTypeEnum.FULL_STATE_UPDATE,
+              currentState
+            );
+
+            this._sessionClientRequiringFullStateUpdateSet.delete(sessionClient.id);
+          }
         }
       }
-
-      if (doFullUpdate) {
-        this.sendToAllSessionClients(SessionTypeEnum.FULL_STATE_UPDATE, state);
-      }
-
-      // TODO: implement delta updates
     }, 1000 / STATE_UPDATE_FPS);
 
     // Starting the ping loop
@@ -80,10 +107,6 @@ export class Session {
 
   get accessCode() {
     return this._state.accessCode;
-  }
-
-  get clients() {
-    return Array.from(this._state.clients.values());
   }
 
   // Events
@@ -125,16 +148,20 @@ export class Session {
 
     sessionClient.ping = ping > PING_INTERVAL ? PING_INTERVAL : ping;
 
-    this._state.clients.set(sessionClient.id, sessionClient);
+    this._state.clients[sessionClient.id] = sessionClient;
   }
 
   // Termination
   terminate() {
     console.log(`[Session] Session "${this._state.id}" terminating ...`);
 
-    const clients = Array.from(this._state.clients.values());
+    const clients = Object.values(this._state.clients);
     for (const client of clients) {
-      sessionManager.terminateClient(client.clientSessionToken);
+      sessionManager.terminateClient(
+        client.clientSessionToken,
+        SessionCodeEnum.SESSION_TERMINATED,
+        'Session terminated'
+      );
     }
 
     clearInterval(this._stateUpdateInterval);
@@ -170,12 +197,14 @@ export class Session {
       `[Session] Adding client with token "${clientSessionToken}" to session "${this.id}" ...`
     );
 
+    const clientsCount = Object.keys(this._state.clients).length;
+
     if (!displayName) {
-      displayName = `Player ${this._state.clients.size + 1}`;
+      displayName = `Player ${clientsCount + 1}`;
     }
 
-    const isHost = this._state.clients.size === 0;
-    const isFirstPlayerBesidesHost = this._state.clients.size === 1;
+    const isHost = clientsCount === 0;
+    const isFirstPlayerBesidesHost = clientsCount === 1;
 
     if (isHost) {
       displayName = 'Host';
@@ -201,8 +230,9 @@ export class Session {
       ping: 0,
     };
 
-    this._state.clients.set(sessionClient.id, sessionClient);
+    this._state.clients[sessionClient.id] = sessionClient;
     this._sessionClientTokenToIdCacheMap.set(clientSessionToken, id);
+    this._sessionClientRequiringFullStateUpdateSet.add(sessionClient.id);
 
     if (isHost) {
       this.updateState({
@@ -231,7 +261,7 @@ export class Session {
       return;
     }
 
-    this._state.clients.delete(sessionClient.id);
+    delete this._state.clients[sessionClient.id];
     this._sessionClientTokenToIdCacheMap.delete(sessionClient.clientSessionToken);
   }
 
@@ -241,12 +271,12 @@ export class Session {
       return null;
     }
 
-    return this._state.clients.get(sessionClientId) ?? null;
+    return this._state.clients[sessionClientId] ?? null;
   }
 
   // Messages
   sendToSessionClient(sessionClientId: string, type: string, payload?: unknown): void {
-    const sessionClient = this._state.clients.get(sessionClientId);
+    const sessionClient = this._state.clients[sessionClientId];
     if (!sessionClient) {
       console.log(`[Session] Client with ID ${sessionClientId} not found in session ${this.id}`);
 
@@ -271,27 +301,10 @@ export class Session {
     webSocket.send(message);
   }
 
-  sendToAllSessionClients(type: string, payload: unknown): void {
-    console.log(`[Session] Sending "${type}" to all clients in session "${this.id}" ...`);
-
-    for (const [, sessionClient] of this._state.clients) {
-      this.sendToSessionClient(sessionClient.id, type, payload);
-    }
-  }
-
   // Private
-  /**
-   * We need this to convert the session object to fully raw json for comparison,
-   * which means that we need to convert the map to a record and set to an array.
-   * It should do it recursively.
-   */
-  private _toRawJson(schema: SessionInterface): SessionInterface {
-    return JSON.parse(serializer.serialize(schema));
-  }
-
   private _sendPingToAllClients() {
     const now = Date.now();
-    for (const [, sessionClient] of this._state.clients) {
+    for (const sessionClient of Object.values(this._state.clients)) {
       this._lastPingTimes.set(sessionClient.id, now);
 
       this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING);

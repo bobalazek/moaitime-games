@@ -1,3 +1,4 @@
+import { applyPatch, Operation } from 'fast-json-patch';
 import { toast } from 'react-toastify';
 
 import {
@@ -21,7 +22,7 @@ export class SessionManager {
       throw new Error('Access code is required');
     }
 
-    const { sessionToken, setSessionToken, setSessionId, setSession } = useSessionStore.getState();
+    const { sessionToken, setSessionToken, setSessionId } = useSessionStore.getState();
 
     try {
       const url = new URL(`${API_URL}/session/${accessCode}?byAccessCode=true`);
@@ -105,6 +106,15 @@ export class SessionManager {
           this.send(SessionTypeEnum.PONG);
         } else if (data.type === SessionTypeEnum.FULL_STATE_UPDATE) {
           setSession(data.payload as SessionInterface);
+        } else if (data.type === SessionTypeEnum.DELTA_STATE_UPDATE) {
+          const currentSession = useSessionStore.getState().session;
+          const delta = data.payload as Operation[];
+          const newSession = applyPatch(currentSession, delta).newDocument;
+          if (!newSession) {
+            return;
+          }
+
+          setSession(newSession);
         }
       };
 
