@@ -1,8 +1,8 @@
-import { API_URL, SessionInterface, SessionTypeEnum } from '@moaitime-games/shared-common';
+import { API_URL, SessionInterface, SessionTypeEnum, WS_URL } from '@moaitime-games/shared-common';
 
 import { useSessionStore } from '../state/sessionStore';
 import { fetchJson } from './FetchHelpers';
-import { webSocketClient } from './WebSocketClient';
+import { WebSocketClient } from './WebSocketClient';
 
 type SessionResponseType = { sessionToken: string; sessionId: string; sessionAccessCode: string };
 
@@ -31,8 +31,13 @@ export class SessionManager {
         },
       });
 
-      setSessionToken(response.sessionToken);
-      setSessionId(response.sessionId);
+      const { sessionId: responseSessionId, sessionToken: responseSessionToken } = response;
+
+      setSessionId(responseSessionId);
+      setSessionToken(responseSessionToken);
+
+      const websocketUrl = `${WS_URL}/session/${responseSessionId}?sessionToken=${responseSessionToken}`;
+      const webSocketClient = new WebSocketClient(websocketUrl);
 
       await webSocketClient.connect();
 

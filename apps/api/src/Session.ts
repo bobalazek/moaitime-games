@@ -228,7 +228,7 @@ export class Session {
   }
 
   // Messages
-  sendToSessionClient(sessionClientId: string, type: string, payload: unknown): void {
+  sendToSessionClient(sessionClientId: string, type: string, payload?: unknown): void {
     const sessionClient = this._state.clients.get(sessionClientId);
     if (!sessionClient) {
       console.log(`[Session] Client with ID ${sessionClientId} not found in session ${this.id}`);
@@ -279,9 +279,7 @@ export class Session {
     for (const [, sessionClient] of this._state.clients) {
       this._lastPingTimes.set(sessionClient.id, now);
 
-      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
-        serverTime: now,
-      });
+      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING);
     }
   }
 }

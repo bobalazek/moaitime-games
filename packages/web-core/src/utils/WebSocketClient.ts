@@ -1,6 +1,4 @@
-import { serializer, SessionTypeEnum, WS_URL } from '@moaitime-games/shared-common';
-
-import { useSessionStore } from '../state/sessionStore';
+import { serializer, SessionTypeEnum } from '@moaitime-games/shared-common';
 
 export interface WebSocketClientOptions {
   maxRetries: number;
@@ -8,6 +6,7 @@ export interface WebSocketClientOptions {
 }
 
 export class WebSocketClient {
+  private _url: string;
   private _options: WebSocketClientOptions;
 
   private _client: WebSocket | null = null;
@@ -15,7 +14,8 @@ export class WebSocketClient {
 
   private _listeners: ((data: unknown) => void)[] = [];
 
-  constructor(options: Partial<WebSocketClientOptions> = {}) {
+  constructor(url: string, options: Partial<WebSocketClientOptions> = {}) {
+    this._url = url;
     this._options = {
       maxRetries: options.maxRetries ?? 5,
       retryInterval: options.retryInterval ?? 200,
@@ -44,9 +44,7 @@ export class WebSocketClient {
   async send<T>(type: string, payload?: T) {
     const client = await this.getClient();
 
-    const clientTime = Date.now();
-
-    client.send(serializer.serialize({ type, payload, clientTime }));
+    client.send(serializer.serialize({ type, payload }));
   }
 
   on<T>(listener: (data: T) => void): void {
@@ -59,23 +57,18 @@ export class WebSocketClient {
 
   private async _createWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
-      const { sessionToken, sessionId } = useSessionStore.getState();
-
-      const websocketUrl = `${WS_URL}/session/${sessionId}?sessionToken=${sessionToken}`;
-      const websocket = new WebSocket(websocketUrl);
+      const websocket = new WebSocket(this._url);
 
       let retries = 0;
 
-      websocket.onopen = (event) => {
-        console.log(event);
+      websocket.onopen = () => {
         this._client = websocket;
         this._isReconnecting = false;
 
         resolve(websocket);
       };
 
-      websocket.onerror = (event) => {
-        console.log(event);
+      websocket.onerror = () => {
         if (retries < this._options.maxRetries) {
           setTimeout(
             () => {
@@ -89,11 +82,10 @@ export class WebSocketClient {
         }
       };
 
-      websocket.onclose = (event) => {
-        console.log(event);
+      websocket.onclose = () => {
         if (!this._isReconnecting) {
           this._isReconnecting = true;
-          this.getClient(); // Attempt to reconnect
+          this.connect();
         }
       };
 
@@ -113,5 +105,3 @@ export class WebSocketClient {
     });
   }
 }
-
-export const webSocketClient = new WebSocketClient();
