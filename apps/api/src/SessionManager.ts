@@ -135,9 +135,9 @@ export class SessionManager {
 
   // Session Tokens
   issueSessionToken(data?: Record<string, unknown>) {
-    const token = generateRandomHash(16);
+    const token = generateRandomHash(6);
     if (this._clientSessionTokensMap.has(token)) {
-      throw new Error('Session token already in use');
+      throw new Error('Session token already in use, please try again');
     }
 
     this._clientSessionTokensMap.set(token, { issuedAt: Date.now(), data });
@@ -172,14 +172,14 @@ export class SessionManager {
 
   // Session
   createSession(): Session {
-    const id = generateRandomHash(8);
+    const id = generateRandomHash(6);
     if (this._sessionMap.has(id)) {
-      throw new Error('Session ID already in use');
+      throw new Error('Session ID already in use, please try again');
     }
 
     const accessCode = Math.floor(Math.random() * 899999 + 100000).toString();
     if (this._sessionAccessCodeCacheMap.has(accessCode)) {
-      throw new Error('Access code already in use');
+      throw new Error('Access code already in use, please try again');
     }
 
     const session = new Session(id, accessCode);

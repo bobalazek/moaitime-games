@@ -214,7 +214,7 @@ export class Session {
       throw new Error('Display name not provided');
     }
 
-    const id = generateRandomHash(8);
+    const id = generateRandomHash(6);
     const now = Date.now();
     const deviceType = DeviceTypeEnum.UNKNOWN;
     const devicePlatform = DevicePlatformEnum.UNKNOWN;
