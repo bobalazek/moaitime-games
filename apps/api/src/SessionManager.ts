@@ -115,7 +115,7 @@ export class SessionManager {
     this._sessionMap.delete(sessionId);
     this._sessionAccessCodeMap.delete(sessionState.accessCode);
 
-    session.dispose();
+    session.terminate();
   }
 
   getSessionForWebSocketSessionToken(webSocketSessionToken: string): Session | null {

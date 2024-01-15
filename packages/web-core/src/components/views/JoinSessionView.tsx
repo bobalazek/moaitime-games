@@ -44,7 +44,7 @@ export function JoinSessionView() {
                 onJoinButtonClick();
               }
             }}
-            className="rounded border border-gray-400 p-2"
+            className="w-full rounded border border-gray-400 p-4 text-3xl"
           />
         </div>
         <div className="mb-4">
@@ -58,13 +58,13 @@ export function JoinSessionView() {
                 onJoinButtonClick();
               }
             }}
-            className="rounded border border-gray-400 p-2"
+            className="w-full rounded border border-gray-400 p-4 text-3xl"
           />
         </div>
         <button
           type="button"
           disabled={isJoining}
-          className="rounded border border-gray-400 p-2"
+          className="rounded border border-gray-400 px-8 py-4 text-3xl"
           onClick={onJoinButtonClick}
         >
           Join

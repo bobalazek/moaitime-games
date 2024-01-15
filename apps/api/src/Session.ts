@@ -16,11 +16,10 @@ const PING_INTERVAL = 2000;
 const STATE_UPDATE_FPS = 60;
 
 export class Session {
-  private _isStarted: boolean = false;
-  private _state: SessionInterface;
-
   private _lastPingTimes: Map<string, number> = new Map();
   private _lastPongTimes: Map<string, number> = new Map();
+
+  private _state: SessionInterface;
 
   constructor(id: string, accessCode: string) {
     this._state = {
@@ -34,15 +33,7 @@ export class Session {
   }
 
   init() {
-    if (this._isStarted) {
-      return;
-    }
-
     console.log(`[Session] Session "${this._state.id}" initializing ...`);
-
-    // Starting the game loop
-
-    this._isStarted = true;
 
     let lastRawState: SessionInterface | null = null;
     setInterval(() => {
@@ -75,6 +66,10 @@ export class Session {
     setInterval(() => {
       this._sendPingToAllClients();
     }, PING_INTERVAL);
+
+    setTimeout(() => {
+      this.terminate();
+    }, 5000);
   }
 
   get id() {
@@ -85,8 +80,8 @@ export class Session {
     return this._state.accessCode;
   }
 
-  dispose() {
-    console.log(`[Session] Session "${this._state.id}" disposing ...`);
+  terminate() {
+    console.log(`[Session] Session "${this._state.id}" terminating ...`);
 
     // TODO
   }
@@ -112,7 +107,7 @@ export class Session {
 
   // Session Events
   onPongMessage(webSocketSessionToken: string) {
-    const sessionClient = this.getClientByWebSocketSessionToken(webSocketSessionToken);
+    const sessionClient = this.getClient(webSocketSessionToken);
     if (!sessionClient) {
       console.log(
         `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
@@ -206,7 +201,7 @@ export class Session {
       `[Session] Removing client with token "${webSocketSessionToken}" from session "${this.id}" ...`
     );
 
-    const sessionClient = this.getClientByWebSocketSessionToken(webSocketSessionToken);
+    const sessionClient = this.getClient(webSocketSessionToken);
     if (!sessionClient) {
       console.log(
         `[Session] Client with token "${webSocketSessionToken}" not found in session "${this.id}"`
@@ -216,6 +211,20 @@ export class Session {
     }
 
     this._state.clients.delete(sessionClient.id);
+  }
+
+  getClient(webSocketSessionToken: string): SessionClientInterface | null {
+    // TODO: must cache that!
+
+    for (const [, sessionClient] of this._state.clients) {
+      if (sessionClient.webSocketSessionToken !== webSocketSessionToken) {
+        continue;
+      }
+
+      return sessionClient;
+    }
+
+    return null;
   }
 
   // Messages
@@ -253,21 +262,6 @@ export class Session {
     for (const [, sessionClient] of this._state.clients) {
       this.sendToSessionClient(sessionClient.id, type, payload);
     }
-  }
-
-  // Helpers
-  getClientByWebSocketSessionToken(webSocketSessionToken: string): SessionClientInterface | null {
-    // TODO: must cache that!
-
-    for (const [, sessionClient] of this._state.clients) {
-      if (sessionClient.webSocketSessionToken !== webSocketSessionToken) {
-        continue;
-      }
-
-      return sessionClient;
-    }
-
-    return null;
   }
 
   // Private

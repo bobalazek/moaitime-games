@@ -1,10 +1,4 @@
-import {
-  API_URL,
-  SessionClientInterface,
-  SessionInterface,
-  SessionTypeEnum,
-  SessionTypePayloadMap,
-} from '@moaitime-games/shared-common';
+import { API_URL, SessionInterface, SessionTypeEnum } from '@moaitime-games/shared-common';
 
 import { useSessionStore } from '../state/sessionStore';
 import { fetchJson } from './FetchHelpers';

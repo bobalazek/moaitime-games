@@ -66,14 +66,16 @@ export class WebSocketClient {
 
       let retries = 0;
 
-      websocket.onopen = () => {
+      websocket.onopen = (event) => {
+        console.log(event);
         this._client = websocket;
         this._isReconnecting = false;
 
         resolve(websocket);
       };
 
-      websocket.onerror = () => {
+      websocket.onerror = (event) => {
+        console.log(event);
         if (retries < this._options.maxRetries) {
           setTimeout(
             () => {
@@ -87,7 +89,8 @@ export class WebSocketClient {
         }
       };
 
-      websocket.onclose = () => {
+      websocket.onclose = (event) => {
+        console.log(event);
         if (!this._isReconnecting) {
           this._isReconnecting = true;
           this.getClient(); // Attempt to reconnect

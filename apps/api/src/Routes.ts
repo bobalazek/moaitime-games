@@ -11,6 +11,12 @@ export const addRoutes = (app: Instance['app']) => {
     res.json({ hello: 'world' });
   });
 
+  app.get('/games', (_, res) => {
+    // TODO
+
+    res.json([]);
+  });
+
   app.post('/session', (_, res) => {
     try {
       const sessionToken = webSocketManager.issueSessionToken();

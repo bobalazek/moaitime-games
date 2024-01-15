@@ -6,5 +6,5 @@ export * from './core/Serializer';
 
 // Session
 export * from './session/Session';
-export * from './session/SessionEnums';
+export * from './session/SessionTypeEnum';
 export * from './session/SessionClient';

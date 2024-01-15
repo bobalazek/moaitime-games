@@ -5,7 +5,7 @@ export function HomeView({ setView }: { setView: (view: string) => void }) {
       <div className="my-12 text-4xl">Are you ready to experience something amazing?</div>
       <button
         type="button"
-        className="rounded-3xl bg-emerald-400 px-8 py-4"
+        className="rounded-3xl bg-emerald-400 px-8 py-4 text-3xl"
         onClick={() => {
           setView('create-session');
         }}
@@ -15,7 +15,7 @@ export function HomeView({ setView }: { setView: (view: string) => void }) {
       <div className="my-4">or</div>
       <button
         type="button"
-        className="rounded-3xl bg-emerald-400 px-8 py-4"
+        className="rounded-3xl bg-emerald-400 px-8 py-4 text-3xl"
         onClick={() => {
           setView('join-session');
         }}
