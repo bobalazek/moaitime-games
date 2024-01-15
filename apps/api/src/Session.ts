@@ -12,12 +12,15 @@ import {
 import { generateRandomHash } from './Helpers';
 import { webSocketManager } from './WebSocketManager';
 
-const PING_INTERVAL = 15000;
+const PING_INTERVAL = 2000;
+const STATE_UPDATE_FPS = 60;
 
 export class Session {
   private _isStarted: boolean = false;
   private _state: SessionInterface;
-  private _fps: number = 60;
+
+  private _lastPingTimes: Map<string, number> = new Map();
+  private _lastPongTimes: Map<string, number> = new Map();
 
   constructor(id: string, accessCode: string) {
     this._state = {
@@ -41,23 +44,23 @@ export class Session {
 
     this._isStarted = true;
 
-    let rawLastState: SessionInterface | null = null;
+    let lastRawState: SessionInterface | null = null;
     setInterval(() => {
       let doFullUpdate = false;
 
       const state = this.getState();
       const rawState = this._toRawJson(state);
 
-      if (!rawLastState) {
+      if (!lastRawState) {
         doFullUpdate = true;
 
-        rawLastState = rawState;
+        lastRawState = rawState;
       } else {
-        const delta = compare(rawLastState, rawState);
+        const delta = compare(lastRawState, rawState);
         if (delta.length > 0) {
           doFullUpdate = true;
 
-          rawLastState = rawState;
+          lastRawState = rawState;
         }
       }
 
@@ -66,13 +69,11 @@ export class Session {
       }
 
       // TODO: implement delta updates
-    }, 1000 / this._fps);
+    }, 1000 / STATE_UPDATE_FPS);
 
     // Starting the ping loop
     setInterval(() => {
-      this.sendToAllSessionClients('ping', {
-        serverTime: Date.now(),
-      });
+      this._sendPingToAllClients();
     }, PING_INTERVAL);
   }
 
@@ -86,8 +87,8 @@ export class Session {
 
     const { type, payload } = data;
 
-    if (type === 'ping') {
-      this.onClientPing(webSocketToken);
+    if (type === SessionTypeEnum.PONG) {
+      this.onPongMessage(webSocketToken);
     }
   }
 
@@ -113,6 +114,27 @@ export class Session {
     this._state.clients.delete(sessionClient.id);
   }
 
+  // Session Events
+  onPongMessage(webSocketToken: string) {
+    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
+    if (!sessionClient) {
+      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
+
+      return;
+    }
+
+    const pongAt = Date.now();
+
+    this._lastPongTimes.set(sessionClient.id, pongAt);
+
+    const lastPingAt = this._lastPingTimes.get(sessionClient.id);
+    const ping = lastPingAt ? pongAt - lastPingAt : 0;
+
+    sessionClient.ping = ping > PING_INTERVAL ? PING_INTERVAL : ping;
+
+    this._state.clients.set(sessionClient.id, sessionClient);
+  }
+
   // State
   getState() {
     return this._state;
@@ -129,14 +151,29 @@ export class Session {
     };
   }
 
-  createClient(
-    webSocketToken: string,
-    displayName: string,
-    deviceType: DeviceTypeEnum = DeviceTypeEnum.UNKNOWN,
-    devicePlatform: DevicePlatformEnum = DevicePlatformEnum.UNKNOWN
-  ) {
+  // Clients
+  addClient(webSocketToken: string, displayName?: string) {
+    console.log(`[API] 📥 Client with token ${webSocketToken} added to session ${this._state.id}`);
+
+    if (!displayName) {
+      displayName = `Player ${this._state.clients.size + 1}`;
+    }
+
+    const isHost = this._state.clients.size === 0;
+    const isFirstPlayerBesidesHost = this._state.clients.size === 1;
+
+    if (isHost) {
+      displayName = 'Host';
+    }
+
+    if (!displayName) {
+      throw new Error('Display name not provided');
+    }
+
     const id = generateRandomHash(8);
     const now = Date.now();
+    const deviceType = DeviceTypeEnum.UNKNOWN;
+    const devicePlatform = DevicePlatformEnum.UNKNOWN;
 
     const sessionClient: SessionClientInterface = {
       id,
@@ -146,18 +183,25 @@ export class Session {
       devicePlatform,
       connectedAt: now,
       disconnectedAt: 0,
-      lastPingAt: now,
+      ping: 0,
     };
+
+    this._state.clients.set(sessionClient.id, sessionClient);
+
+    if (isHost) {
+      this.updateState({
+        hostClientId: sessionClient.id,
+      });
+    } else if (isFirstPlayerBesidesHost) {
+      this.updateState({
+        controllerClientId: sessionClient.id,
+      });
+    }
 
     return sessionClient;
   }
 
-  addClient(sessionClient: SessionClientInterface) {
-    console.log(`[API] 📥 Client with ID ${sessionClient.id} added to session ${this._state.id}`);
-
-    this._state.clients.set(sessionClient.id, sessionClient);
-  }
-
+  // Messages
   sendToSessionClient(sessionClientId: string, type: string, payload: unknown): void {
     const sessionClient = this._state.clients.get(sessionClientId);
     if (!sessionClient) {
@@ -186,20 +230,6 @@ export class Session {
     }
   }
 
-  // Events
-  onClientPing(webSocketToken: string) {
-    const sessionClient = this.getClientByWebSocketToken(webSocketToken);
-    if (!sessionClient) {
-      console.log(`[API] ❌ Client with token ${webSocketToken} not found`);
-
-      return;
-    }
-
-    sessionClient.lastPingAt = Date.now();
-
-    this._state.clients.set(sessionClient.id, sessionClient);
-  }
-
   // Helpers
   getClientByWebSocketToken(webSocketToken: string): SessionClientInterface | null {
     // TODO: must cache that!
@@ -213,6 +243,7 @@ export class Session {
     return null;
   }
 
+  // Private
   /**
    * We need this to convert the session object to fully raw json for comparison,
    * which means that we need to convert the map to a record and set to an array.
@@ -220,5 +251,17 @@ export class Session {
    */
   private _toRawJson(schema: SessionInterface): SessionInterface {
     return JSON.parse(serializer.serialize(schema));
+  }
+
+  // Ping
+  private _sendPingToAllClients() {
+    const now = Date.now();
+    for (const [, sessionClient] of this._state.clients) {
+      this._lastPingTimes.set(sessionClient.id, now);
+
+      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
+        serverTime: now,
+      });
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { serializer, WS_URL } from '@moaitime-games/shared-common';
+import { serializer, SessionTypeEnum, WS_URL } from '@moaitime-games/shared-common';
 
 import { useSessionStore } from '../state/sessionStore';
 
@@ -97,8 +97,8 @@ export class WebSocketClient {
       websocket.onmessage = (messageEvent) => {
         const data = serializer.deserialize(messageEvent.data as string);
 
-        if (data && (data as { type: string }).type === 'ping') {
-          this.send('pong');
+        if (data && (data as { type: string }).type === SessionTypeEnum.PING) {
+          this.send(SessionTypeEnum.PONG);
 
           return;
         }

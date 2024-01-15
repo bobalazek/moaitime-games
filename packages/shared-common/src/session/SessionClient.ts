@@ -9,5 +9,5 @@ export interface SessionClientInterface {
   devicePlatform: DevicePlatformEnum;
   connectedAt: number;
   disconnectedAt: number;
-  lastPingAt: number;
+  ping: number;
 }

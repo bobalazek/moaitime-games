@@ -72,34 +72,11 @@ export class SessionManager {
       throw new Error('Session not found');
     }
 
-    let displayName = options?.displayName;
-
-    const sessionState = session.getState();
-
-    const isHost = sessionState.clients.size === 0;
-    const isFirstPlayerBesidesHost = sessionState.clients.size === 1;
-
-    if (isHost) {
-      displayName = 'Host';
+    if (this._webSocketTokenToSessionIdMap.has(webSocketToken)) {
+      throw new Error('Client has already joined a session');
     }
 
-    if (!displayName) {
-      throw new Error('Display name not provided');
-    }
-
-    const sessionClient = session.createClient(webSocketToken, displayName);
-
-    session.addClient(sessionClient);
-
-    if (isHost) {
-      session.updateState({
-        hostClientId: sessionClient.id,
-      });
-    } else if (isFirstPlayerBesidesHost) {
-      session.updateState({
-        controllerClientId: sessionClient.id,
-      });
-    }
+    const sessionClient = session.addClient(webSocketToken, options?.displayName);
 
     this._webSocketTokenToSessionIdMap.set(webSocketToken, sessionId);
 
