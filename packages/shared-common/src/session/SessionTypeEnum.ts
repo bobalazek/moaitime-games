@@ -2,21 +2,32 @@ import { PatcherOperation } from '../core/Patcher';
 import { SessionInterface } from './Session';
 
 export enum SessionTypeEnum {
-  PING = 0,
-  PONG = 1,
-  LEAVE = 2,
-  DELTA_STATE_UPDATE = 3,
-  FULL_STATE_UPDATE = 4,
-  CONTROLLER_COMMAND = 5,
+  // Server -> Client
+  SERVER_TO_CLIENT_PING = 0,
+  SERVER_TO_CLIENT_PONG = 1,
+  SERVER_TO_CLIENT_DELTA_STATE_UPDATE = 2,
+  SERVER_TO_CLIENT_FULL_STATE_UPDATE = 3,
+  SERVER_TO_CLIENT_REQUEST_CURRENT_TIME = 4,
+  // Client -> Server
+  CLIENT_TO_SERVER_PING = 16,
+  CLIENT_TO_SERVER_PONG = 17,
+  CLIENT_TO_SERVER_LEAVE = 18,
+  CLIENT_TO_SERVER_CONTROLLER_COMMAND = 19,
+  CLIENT_TO_SERVER_CURRENT_TIME = 20,
 }
 
 export type SessionTypePayloadMap = {
-  [SessionTypeEnum.PING]: { id: string };
-  [SessionTypeEnum.PONG]: { id: string };
-  [SessionTypeEnum.LEAVE]: undefined;
-  [SessionTypeEnum.DELTA_STATE_UPDATE]: PatcherOperation[];
-  [SessionTypeEnum.FULL_STATE_UPDATE]: SessionInterface;
-  [SessionTypeEnum.CONTROLLER_COMMAND]: SessionControllerCommandEnum;
+  // Server -> Client
+  [SessionTypeEnum.SERVER_TO_CLIENT_PING]: { id: string };
+  [SessionTypeEnum.SERVER_TO_CLIENT_PONG]: { id: string };
+  [SessionTypeEnum.SERVER_TO_CLIENT_DELTA_STATE_UPDATE]: PatcherOperation[];
+  [SessionTypeEnum.SERVER_TO_CLIENT_FULL_STATE_UPDATE]: SessionInterface;
+  // Client -> Server
+  [SessionTypeEnum.CLIENT_TO_SERVER_PING]: { id: string };
+  [SessionTypeEnum.CLIENT_TO_SERVER_PONG]: { id: string };
+  [SessionTypeEnum.CLIENT_TO_SERVER_LEAVE]: undefined;
+  [SessionTypeEnum.CLIENT_TO_SERVER_CONTROLLER_COMMAND]: SessionControllerCommandEnum;
+  [SessionTypeEnum.CLIENT_TO_SERVER_CURRENT_TIME]: { currentTime: number };
 };
 
 export enum SessionControllerCommandEnum {

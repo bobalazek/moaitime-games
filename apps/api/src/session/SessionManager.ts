@@ -13,22 +13,14 @@ const GARBAGE_COLLECTION_INTERVAL = 5000;
 const ISSUED_TOKEN_LIFETIME = 10000;
 
 export class SessionManager {
-  // The map of all active sessions
   private _sessionMap: Map<string, Session> = new Map();
-
-  // A cached map of all the current
   private _sessionAccessCodeCacheMap: Map<string, string> = new Map();
 
-  // A map of all the current websocket connections
   private _clientsMap: Map<string, WebSocket> = new Map();
-
-  // The issued session tokens that are needed when joining a session
   private _clientSessionTokensMap: Map<
     string,
     { issuedAt: number; data?: Record<string, unknown> }
   > = new Map();
-
-  // A cached map of all the websocket/session tokens, that are currently connected to a session
   private _clientSessionTokenToSessionIdCacheMap: Map<string, string> = new Map();
 
   constructor() {

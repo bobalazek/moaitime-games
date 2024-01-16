@@ -77,7 +77,7 @@ export class SessionManager {
     }
 
     if (consented) {
-      this.send(SessionTypeEnum.LEAVE);
+      this.send(SessionTypeEnum.CLIENT_TO_SERVER_LEAVE);
     } else {
       this._webSocketClient.close();
     }
@@ -94,7 +94,7 @@ export class SessionManager {
 
   // Send controller command
   sendControllerCommand(command: SessionControllerCommandEnum) {
-    this.send(SessionTypeEnum.CONTROLLER_COMMAND, command);
+    this.send(SessionTypeEnum.CLIENT_TO_SERVER_CONTROLLER_COMMAND, command);
   }
 
   // WebSocket
@@ -122,11 +122,15 @@ export class SessionManager {
 
         const [type, payload] = data;
 
-        if (type === SessionTypeEnum.PING) {
-          this.send(SessionTypeEnum.PONG, payload);
-        } else if (type === SessionTypeEnum.FULL_STATE_UPDATE) {
+        if (type === SessionTypeEnum.SERVER_TO_CLIENT_PING) {
+          this.send(SessionTypeEnum.CLIENT_TO_SERVER_PONG, payload);
+        } else if (type === SessionTypeEnum.SERVER_TO_CLIENT_REQUEST_CURRENT_TIME) {
+          this.send(SessionTypeEnum.CLIENT_TO_SERVER_CURRENT_TIME, {
+            currentTime: Date.now(),
+          });
+        } else if (type === SessionTypeEnum.SERVER_TO_CLIENT_FULL_STATE_UPDATE) {
           setSession(payload as SessionInterface);
-        } else if (type === SessionTypeEnum.DELTA_STATE_UPDATE) {
+        } else if (type === SessionTypeEnum.SERVER_TO_CLIENT_DELTA_STATE_UPDATE) {
           const currentSession = useSessionStore.getState().session;
           if (!currentSession) {
             return;

@@ -25,6 +25,7 @@ export class Session {
 
   private _sessionClientRequiringFullStateUpdateSet: Set<string> = new Set();
   private _sessionClientTokenToIdCacheMap: Map<string, string> = new Map();
+  private _sessionClientTimeOffsetMap: Map<string, number> = new Map();
 
   private _stateUpdateInterval: NodeJS.Timeout;
   private _pingInterval: NodeJS.Timeout;
@@ -57,7 +58,7 @@ export class Session {
         for (const sessionClient of Object.values(this._state.clients)) {
           this.sendToSessionClient(
             sessionClient.id,
-            SessionTypeEnum.FULL_STATE_UPDATE,
+            SessionTypeEnum.SERVER_TO_CLIENT_FULL_STATE_UPDATE,
             currentState
           );
 
@@ -73,7 +74,11 @@ export class Session {
               continue;
             }
 
-            this.sendToSessionClient(sessionClient.id, SessionTypeEnum.DELTA_STATE_UPDATE, delta);
+            this.sendToSessionClient(
+              sessionClient.id,
+              SessionTypeEnum.SERVER_TO_CLIENT_DELTA_STATE_UPDATE,
+              delta
+            );
           }
         } else {
           // If a new client has joined, that one will need a full update first
@@ -88,7 +93,7 @@ export class Session {
 
             this.sendToSessionClient(
               sessionClient.id,
-              SessionTypeEnum.FULL_STATE_UPDATE,
+              SessionTypeEnum.SERVER_TO_CLIENT_FULL_STATE_UPDATE,
               currentState
             );
 
@@ -139,10 +144,15 @@ export class Session {
 
     console.log(`[Session] Received "${type}" from client "${clientSessionToken}" ...`);
 
-    if (type === SessionTypeEnum.PONG) {
+    if (type === SessionTypeEnum.CLIENT_TO_SERVER_PONG) {
       this.onPongMessage(clientSessionToken);
-    } else if (type === SessionTypeEnum.LEAVE) {
+    } else if (type === SessionTypeEnum.CLIENT_TO_SERVER_LEAVE) {
       this.onLeaveMessage(clientSessionToken);
+    } else if (type === SessionTypeEnum.CLIENT_TO_SERVER_CURRENT_TIME) {
+      this.onCurrentTimeMessage(
+        clientSessionToken,
+        (payload as { currentTime: number })?.currentTime
+      );
     }
   }
 
@@ -187,6 +197,24 @@ export class Session {
     }
 
     this.removeClient(clientSessionToken);
+  }
+
+  onCurrentTimeMessage(clientSessionToken: string, currentTime: number) {
+    const sessionClient = this.getClient(clientSessionToken);
+    if (!sessionClient) {
+      console.log(
+        `[Session] Client with token "${clientSessionToken}" not found in session "${this.id}"`
+      );
+
+      return;
+    }
+
+    const now = Date.now();
+    const timeOffset = now - currentTime;
+
+    this._sessionClientTimeOffsetMap.set(sessionClient.id, timeOffset);
+
+    console.log(`[Session] Client "${sessionClient.id}" time offset: ${timeOffset}`);
   }
 
   // Termination
@@ -285,6 +313,12 @@ export class Session {
     // We want to know immediately what the ping is, as in the worst case it takes 2 seconds
     this._sendPingToClient(sessionClient.id);
 
+    // We also want to know what the time offset is
+    this.sendToSessionClient(
+      sessionClient.id,
+      SessionTypeEnum.SERVER_TO_CLIENT_REQUEST_CURRENT_TIME
+    );
+
     return sessionClient;
   }
 
@@ -376,7 +410,7 @@ export class Session {
 
     this._lastPingTimes.set(sessionClient.id, now);
 
-    this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
+    this.sendToSessionClient(sessionClient.id, SessionTypeEnum.SERVER_TO_CLIENT_PING, {
       id,
     });
   }

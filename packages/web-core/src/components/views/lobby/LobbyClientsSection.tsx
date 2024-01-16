@@ -1,9 +1,9 @@
 import { useSessionStore } from '../../../state/sessionStore';
-import { cn } from '../../../utils/StyleHelpers';
+import { LobbyClient } from './LobbyClient';
 
 export function LobbyClientsSection() {
   const { session, sessionToken } = useSessionStore();
-  if (!session) {
+  if (!session || !sessionToken) {
     return null;
   }
 
@@ -17,33 +17,15 @@ export function LobbyClientsSection() {
       {clients.length > 0 && (
         <div>
           <div className="mb-4 text-center text-2xl font-bold">Players</div>
-          {/* here we want a horizontal scroll */}
           <div className="flex h-24 items-center justify-center gap-2 overflow-x-auto px-4 text-2xl">
             {clients.map((client) => {
-              const isClientHost = client.id === session.hostClientId;
-              const isClientMe = client.clientSessionToken === sessionToken;
-              const isClientController = client.id === session.controllerClientId;
-
               return (
-                <div
+                <LobbyClient
                   key={client.id}
-                  className={cn(
-                    'relative flex gap-2 rounded-full bg-slate-600 p-6',
-                    isClientMe && 'bg-emerald-400'
-                  )}
-                >
-                  <span>{client.displayName}</span>
-                  {isClientHost && <span>📺</span>}
-                  {isClientController && <span>🎮</span>}
-                  <span
-                    className={cn(
-                      'absolute right-0 top-0 flex h-6 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-black',
-                      client.disconnectedAt && 'bg-red-800 text-white'
-                    )}
-                  >
-                    {client.ping}
-                  </span>
-                </div>
+                  session={session}
+                  sessionToken={sessionToken}
+                  client={client}
+                />
               );
             })}
           </div>
