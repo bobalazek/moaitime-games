@@ -2,7 +2,7 @@ import { WebSocket } from 'ws';
 
 import { SessionWebSocketCloseCodeEnum } from '@moaitime-games/shared-common';
 
-import { generateRandomHash } from './Helpers';
+import { generateRandomHash } from '../Helpers';
 import { Session } from './Session';
 
 export type SessionManagerJoinSessionOptions = {

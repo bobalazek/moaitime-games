@@ -10,7 +10,7 @@ import {
   SessionWebSocketMessage,
 } from '@moaitime-games/shared-common';
 
-import { generateRandomHash } from './Helpers';
+import { generateRandomHash } from '../Helpers';
 import { sessionManager } from './SessionManager';
 
 const PING_INTERVAL = 2000;

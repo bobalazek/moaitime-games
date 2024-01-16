@@ -2,20 +2,10 @@ import { Request } from 'express';
 import { Instance } from 'express-ws';
 import { WebSocket } from 'ws';
 
-import { sessionManager } from './SessionManager';
+import { sessionManager } from '../session/SessionManager';
 
-export const addRoutes = (app: Instance['app']) => {
+export const addSessionRoutes = (app: Instance['app']) => {
   // HTTP
-  app.get('/', (_, res) => {
-    res.json({ hello: 'world' });
-  });
-
-  app.get('/games', (_, res) => {
-    // TODO
-
-    res.json([]);
-  });
-
   app.post('/session', (_, res) => {
     try {
       const sessionToken = sessionManager.issueSessionToken();
