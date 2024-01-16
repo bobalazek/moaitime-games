@@ -4,9 +4,9 @@ import {
   patcher,
   serializer,
   SessionClientInterface,
-  SessionCloseCodeEnum,
   SessionInterface,
   SessionTypeEnum,
+  SessionWebSocketCloseCodeEnum,
   SessionWebSocketMessage,
 } from '@moaitime-games/shared-common';
 
@@ -153,7 +153,7 @@ export class Session {
 
   // Termination
   terminate(
-    code: SessionCloseCodeEnum = SessionCloseCodeEnum.SESSION_TERMINATED,
+    code: SessionWebSocketCloseCodeEnum = SessionWebSocketCloseCodeEnum.SESSION_TERMINATED,
     reason: string = 'Session terminated'
   ) {
     console.log(`[Session] Session "${this._state.id}" terminating ...`);
@@ -268,7 +268,7 @@ export class Session {
 
     if (clientWasHost) {
       this.terminate(
-        SessionCloseCodeEnum.SESSION_HOST_CLIENT_DISCONNECTED,
+        SessionWebSocketCloseCodeEnum.SESSION_HOST_CLIENT_DISCONNECTED,
         'Session host client disconnected'
       );
     }

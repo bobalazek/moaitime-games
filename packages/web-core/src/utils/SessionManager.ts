@@ -141,14 +141,12 @@ export class SessionManager {
       };
 
       webSocketClient.onclose = (event) => {
-        console.log(event);
-
         resetSession();
 
         this._webSocketClient = undefined;
 
         toast.error(
-          event.reason ?? 'Connection to server lost. Please refresh the page to reconnect.'
+          event.reason || 'Connection to server lost. Please refresh the page to reconnect.'
         );
       };
     });
