@@ -9,8 +9,8 @@ export const ControlButton: React.FC<ButtonHTMLAttributes<HTMLButtonElement>> = 
   const [isPressed, setIsPressed] = useState(false);
 
   useEffect(() => {
-    if (isPressed) {
-      navigator?.vibrate?.(100);
+    if (isPressed && 'vibrate' in navigator) {
+      navigator.vibrate(100);
     }
   }, [isPressed]);
 

@@ -18,6 +18,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleResolution": "bundler",
+    /* Need to keep this at ES6 tops, else Safari angry! Also, DO NOT USE "optional?.chaining?.operator" on the frontend. Not working in Safari!! */
     "target": "ES6",
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
