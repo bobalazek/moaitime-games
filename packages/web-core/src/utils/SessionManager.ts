@@ -6,6 +6,7 @@ import {
   serializer,
   SessionInterface,
   SessionTypeEnum,
+  SessionWebSocketMessage,
   WS_URL,
 } from '@moaitime-games/shared-common';
 
@@ -72,7 +73,7 @@ export class SessionManager {
       throw new Error('WebSocket connection not established');
     }
 
-    this._webSocketClient.send(serializer.serialize({ type, payload }));
+    this._webSocketClient.send(serializer.serialize(payload ? [type, payload] : [type]));
   }
 
   // WebSocket
@@ -93,22 +94,20 @@ export class SessionManager {
       };
 
       webSocketClient.onmessage = (event) => {
-        const data = serializer.deserialize(event.data as string) as {
-          type: string;
-          payload: unknown;
-        };
-
+        const data = serializer.deserialize(event.data as string) as SessionWebSocketMessage;
         if (!data) {
           return;
         }
 
-        if (data.type === SessionTypeEnum.PING) {
+        const [type, payload] = data;
+
+        if (type === SessionTypeEnum.PING) {
           this.send(SessionTypeEnum.PONG);
-        } else if (data.type === SessionTypeEnum.FULL_STATE_UPDATE) {
-          setSession(data.payload as SessionInterface);
-        } else if (data.type === SessionTypeEnum.DELTA_STATE_UPDATE) {
+        } else if (type === SessionTypeEnum.FULL_STATE_UPDATE) {
+          setSession(payload as SessionInterface);
+        } else if (type === SessionTypeEnum.DELTA_STATE_UPDATE) {
           const currentSession = useSessionStore.getState().session;
-          const delta = data.payload as Operation[];
+          const delta = payload as Operation[];
           const newSession = applyPatch(currentSession, delta).newDocument;
           if (!newSession) {
             return;

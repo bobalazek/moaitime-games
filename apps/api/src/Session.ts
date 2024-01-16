@@ -8,6 +8,7 @@ import {
   SessionCodeEnum,
   SessionInterface,
   SessionTypeEnum,
+  SessionWebSocketMessage,
 } from '@moaitime-games/shared-common';
 
 import { generateRandomHash } from './Helpers';
@@ -49,7 +50,7 @@ export class Session {
       const currentState = this._state;
 
       if (!lastState) {
-        lastState = serializer.deepClone(currentState);
+        lastState = this.deepClone(currentState);
 
         for (const sessionClient of Object.values(this._state.clients)) {
           this.sendToSessionClient(
@@ -63,7 +64,7 @@ export class Session {
       } else {
         const delta = compare(lastState, currentState);
         if (delta.length > 0) {
-          lastState = serializer.deepClone(currentState);
+          lastState = this.deepClone(currentState);
 
           for (const sessionClient of Object.values(this._state.clients)) {
             if (this._sessionClientRequiringFullStateUpdateSet.has(sessionClient.id)) {
@@ -111,9 +112,9 @@ export class Session {
 
   // Events
   onMessage(clientSessionToken: string, message: unknown) {
-    const data = serializer.deserialize(message as string) as { type: string; payload: unknown };
+    const data = serializer.deserialize(message as string) as SessionWebSocketMessage;
 
-    const { type, payload } = data;
+    const [type, payload] = data;
 
     if (type === SessionTypeEnum.PONG) {
       this.onPongMessage(clientSessionToken);
@@ -275,7 +276,7 @@ export class Session {
   }
 
   // Messages
-  sendToSessionClient(sessionClientId: string, type: string, payload?: unknown): void {
+  sendToSessionClient(sessionClientId: string, type: SessionTypeEnum, payload?: unknown): void {
     const sessionClient = this._state.clients[sessionClientId];
     if (!sessionClient) {
       console.log(`[Session] Client with ID ${sessionClientId} not found in session ${this.id}`);
@@ -296,9 +297,7 @@ export class Session {
       `[Session] Sending "${type}" to client "${sessionClient.id}" in session "${this.id}" ...`
     );
 
-    const message = serializer.serialize({ type, payload });
-
-    webSocket.send(message);
+    webSocket.send(serializer.serialize(payload ? [type, payload] : [type]));
   }
 
   // Private
@@ -309,5 +308,9 @@ export class Session {
 
       this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING);
     }
+  }
+
+  private deepClone<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value));
   }
 }

@@ -9,3 +9,4 @@ export * from './session/Session';
 export * from './session/SessionClient';
 export * from './session/SessionTypeEnum';
 export * from './session/SessionCodeEnum';
+export * from './session/SessionWebSocketMessage';

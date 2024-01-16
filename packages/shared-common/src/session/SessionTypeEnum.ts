@@ -1,8 +1,7 @@
 export enum SessionTypeEnum {
-  PING = 'ping',
-  PONG = 'pong',
-  DELTA_STATE_UPDATE = 'delta-state-update',
-  FULL_STATE_UPDATE = 'full-state-update',
-  LOBBY_COMMANDS = 'lobby-commands',
-  GAME_COMMANDS = 'game-commands',
+  PING = 0,
+  PONG = 1,
+  DELTA_STATE_UPDATE = 2,
+  FULL_STATE_UPDATE = 3,
+  CONTROLLER_COMMAND = 4,
 }
