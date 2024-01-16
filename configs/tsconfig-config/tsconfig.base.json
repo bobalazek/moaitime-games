@@ -18,7 +18,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleResolution": "bundler",
-    "target": "ESNext",
+    "target": "ES6",
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
     "types": ["node"],
