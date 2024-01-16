@@ -8,7 +8,9 @@ export function HomeView({ setView }: { setView: (view: string) => void }) {
       await sessionManager.createSession();
     } catch (error: unknown) {
       toast.error(
-        error instanceof Error ? error.message : 'Something went wrong. Please try again later.'
+        error instanceof Error
+          ? error.message
+          : 'Could not start new session. Please try again later.'
       );
     }
   };

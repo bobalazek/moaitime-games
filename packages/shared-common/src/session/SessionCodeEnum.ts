@@ -1,4 +1,0 @@
-export enum SessionCodeEnum {
-  SESSION_TERMINATED = 4000,
-  SESSION_CLIENT_TIMEOUT = 4001,
-}

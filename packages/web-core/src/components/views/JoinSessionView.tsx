@@ -4,8 +4,8 @@ import { toast } from 'react-toastify';
 import { sessionManager } from '../../utils/SessionManager';
 
 export function JoinSessionView() {
-  const [displayName, setDisplayName] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
   const onJoinButtonClick = async () => {
@@ -16,7 +16,9 @@ export function JoinSessionView() {
         displayName,
       });
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Unknown error');
+      toast.error(
+        error instanceof Error ? error.message : 'Could not join session. Try again later.'
+      );
     } finally {
       setIsJoining(false);
     }
@@ -28,10 +30,10 @@ export function JoinSessionView() {
         <h1 className="mb-4 text-center text-4xl">Join a session</h1>
         <div className="mb-4">
           <input
-            type="text"
-            placeholder="Display name"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
+            type="number"
+            placeholder="Access code"
+            value={accessCode}
+            onChange={(event) => setAccessCode(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 onJoinButtonClick();
@@ -42,10 +44,10 @@ export function JoinSessionView() {
         </div>
         <div className="mb-4">
           <input
-            type="number"
-            placeholder="Access code"
-            value={accessCode}
-            onChange={(event) => setAccessCode(event.target.value)}
+            type="text"
+            placeholder="Display name"
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 onJoinButtonClick();

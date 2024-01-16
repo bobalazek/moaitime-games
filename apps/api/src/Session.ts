@@ -1,11 +1,10 @@
-import { compare } from 'fast-json-patch';
-
 import {
   DevicePlatformEnum,
   DeviceTypeEnum,
+  patcher,
   serializer,
   SessionClientInterface,
-  SessionCodeEnum,
+  SessionCloseCodeEnum,
   SessionInterface,
   SessionTypeEnum,
   SessionWebSocketMessage,
@@ -62,7 +61,7 @@ export class Session {
           this._sessionClientRequiringFullStateUpdateSet.delete(sessionClient.id);
         }
       } else {
-        const delta = compare(lastState, currentState);
+        const delta = patcher.compare(lastState, currentState);
         if (delta.length > 0) {
           lastState = this.deepClone(currentState);
 
@@ -153,16 +152,15 @@ export class Session {
   }
 
   // Termination
-  terminate() {
+  terminate(
+    code: SessionCloseCodeEnum = SessionCloseCodeEnum.SESSION_TERMINATED,
+    reason: string = 'Session terminated'
+  ) {
     console.log(`[Session] Session "${this._state.id}" terminating ...`);
 
     const clients = Object.values(this._state.clients);
     for (const client of clients) {
-      sessionManager.terminateClient(
-        client.clientSessionToken,
-        SessionCodeEnum.SESSION_TERMINATED,
-        'Session terminated'
-      );
+      sessionManager.terminateClient(client.clientSessionToken, code, reason);
     }
 
     clearInterval(this._stateUpdateInterval);
@@ -264,6 +262,26 @@ export class Session {
 
     delete this._state.clients[sessionClient.id];
     this._sessionClientTokenToIdCacheMap.delete(sessionClient.clientSessionToken);
+
+    const clientWasHost = this._state.hostClientId === sessionClient.id;
+    const clientWasController = this._state.controllerClientId === sessionClient.id;
+
+    if (clientWasHost) {
+      this.terminate(
+        SessionCloseCodeEnum.SESSION_HOST_CLIENT_DISCONNECTED,
+        'Session host client disconnected'
+      );
+    }
+
+    if (clientWasController) {
+      const nextAvailableClientExceptHost = Object.values(this._state.clients).find(
+        (client) => client.id !== this._state.hostClientId
+      );
+
+      this.updateState({
+        controllerClientId: nextAvailableClientExceptHost?.id ?? undefined,
+      });
+    }
   }
 
   getClient(clientSessionToken: string): SessionClientInterface | null {
@@ -303,10 +321,13 @@ export class Session {
   // Private
   private _sendPingToAllClients() {
     const now = Date.now();
+    const id = generateRandomHash(4);
     for (const sessionClient of Object.values(this._state.clients)) {
       this._lastPingTimes.set(sessionClient.id, now);
 
-      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING);
+      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
+        id,
+      });
     }
   }
 

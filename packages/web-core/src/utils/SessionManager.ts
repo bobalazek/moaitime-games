@@ -1,9 +1,11 @@
-import { applyPatch, Operation } from 'fast-json-patch';
 import { toast } from 'react-toastify';
 
 import {
   API_URL,
+  patcher,
+  PatcherOperation,
   serializer,
+  SessionControllerCommandEnum,
   SessionInterface,
   SessionTypeEnum,
   SessionWebSocketMessage,
@@ -45,7 +47,7 @@ export class SessionManager {
       setSessionId(responseSessionId);
       setSessionToken(responseSessionToken);
 
-      await this._connectToWebSocket();
+      await this._initWebSocket();
 
       return response.sessionId;
     } catch (error: unknown) {
@@ -68,6 +70,7 @@ export class SessionManager {
     return response.sessionId;
   }
 
+  // Send
   send(type: SessionTypeEnum, payload?: unknown) {
     if (!this._webSocketClient) {
       throw new Error('WebSocket connection not established');
@@ -76,8 +79,13 @@ export class SessionManager {
     this._webSocketClient.send(serializer.serialize(payload ? [type, payload] : [type]));
   }
 
+  // Send controller command
+  sendControllerCommand(command: SessionControllerCommandEnum) {
+    this.send(SessionTypeEnum.CONTROLLER_COMMAND, command);
+  }
+
   // WebSocket
-  async _connectToWebSocket(): Promise<void> {
+  async _initWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
       const { sessionToken, sessionId, setSession, resetSession } = useSessionStore.getState();
       if (!sessionId) {
@@ -102,13 +110,16 @@ export class SessionManager {
         const [type, payload] = data;
 
         if (type === SessionTypeEnum.PING) {
-          this.send(SessionTypeEnum.PONG);
+          this.send(SessionTypeEnum.PONG, payload);
         } else if (type === SessionTypeEnum.FULL_STATE_UPDATE) {
           setSession(payload as SessionInterface);
         } else if (type === SessionTypeEnum.DELTA_STATE_UPDATE) {
           const currentSession = useSessionStore.getState().session;
-          const delta = payload as Operation[];
-          const newSession = applyPatch(currentSession, delta).newDocument;
+          if (!currentSession) {
+            return;
+          }
+
+          const newSession = patcher.applyPatch(currentSession, payload as PatcherOperation[]);
           if (!newSession) {
             return;
           }
@@ -122,7 +133,9 @@ export class SessionManager {
 
         this._webSocketClient = undefined;
 
-        toast.error('Could not establish connection to server. Please refresh the page.');
+        toast.error(
+          'There was an error while trying to connect to the web socket. Please refresh the page.'
+        );
 
         reject();
       };

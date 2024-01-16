@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws';
 
-import { SessionCodeEnum } from '@moaitime-games/shared-common';
+import { SessionCloseCodeEnum } from '@moaitime-games/shared-common';
 
 import { generateRandomHash } from './Helpers';
 import { Session } from './Session';
@@ -60,7 +60,7 @@ export class SessionManager {
 
           this.terminateClient(
             clientSessionToken,
-            SessionCodeEnum.SESSION_CLIENT_TIMEOUT,
+            SessionCloseCodeEnum.SESSION_CLIENT_TIMEOUT,
             'Client timed out'
           );
         }
