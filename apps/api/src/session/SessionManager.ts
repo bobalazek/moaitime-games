@@ -224,12 +224,12 @@ export class SessionManager {
     return this._clientsMap.get(clientSessionToken) ?? null;
   }
 
-  closeClientConnection(clientSessionToken: string, code: number, reason?: string) {
-    if (!this._clientsMap.has(clientSessionToken)) {
-      return;
-    }
-
-    const client = this._clientsMap.get(clientSessionToken);
+  closeClientConnection(
+    clientSessionToken: string,
+    code: SessionWebSocketCloseCodeEnum,
+    reason?: string
+  ) {
+    const client = this.getClientBySessionToken(clientSessionToken);
     if (client && client.readyState === 1 /*WebSocket.OPEN*/) {
       // For some reason, WebSocket.OPEN is not defined in the ws package on runtime. Strange stuff.
       client.close(code, reason);

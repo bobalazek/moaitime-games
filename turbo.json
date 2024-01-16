@@ -16,6 +16,9 @@
     },
     "serve": {
       "dependsOn": ["build"]
+    },
+    "preview": {
+      "dependsOn": ["build"]
     }
   }
 }

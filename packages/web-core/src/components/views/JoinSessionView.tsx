@@ -25,8 +25,8 @@ export function JoinSessionView() {
   };
 
   return (
-    <div className="container m-auto">
-      <div className="mt-8 p-4 text-center text-2xl">
+    <div className="container m-auto py-8">
+      <div className="p-4 text-center text-2xl">
         <h1 className="mb-4 text-center text-4xl">Join a session</h1>
         <div className="mb-4">
           <input

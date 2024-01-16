@@ -14,6 +14,7 @@ import { generateRandomHash } from '../Helpers';
 import { sessionManager } from './SessionManager';
 
 const PING_INTERVAL = 2000;
+const DISCONNECT_INTERVAL = 1000;
 const STATE_UPDATE_FPS = 30;
 
 export class Session {
@@ -113,13 +114,13 @@ export class Session {
         }
 
         const disconnectedAt = now - lastPongAt;
-        if (disconnectedAt < PING_INTERVAL) {
+        if (disconnectedAt < PING_INTERVAL * 2) {
           continue;
         }
 
         sessionClient.disconnectedAt = now;
       }
-    }, 1000);
+    }, DISCONNECT_INTERVAL);
   }
 
   get id() {
@@ -173,8 +174,6 @@ export class Session {
 
     sessionClient.disconnectedAt = 0;
     sessionClient.ping = ping > PING_INTERVAL ? PING_INTERVAL : ping;
-
-    this._state.clients[sessionClient.id] = sessionClient;
   }
 
   onLeaveMessage(clientSessionToken: string) {
