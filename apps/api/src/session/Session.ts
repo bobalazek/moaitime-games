@@ -27,8 +27,9 @@ export class Session {
 
   private _stateUpdateInterval: NodeJS.Timeout;
   private _pingInterval: NodeJS.Timeout;
+  private _disconnectDetectionInterval: NodeJS.Timeout;
 
-  private _terminatedCallback: () => void;
+  private _onTerminatedCallback: () => void;
 
   constructor(id: string, accessCode: string) {
     this._state = {
@@ -44,6 +45,7 @@ export class Session {
   init() {
     console.log(`[Session] Session "${this._state.id}" initializing ...`);
 
+    // State update loop
     let lastState: SessionInterface | null = null;
     this._stateUpdateInterval = setInterval(() => {
       const currentState = this._state;
@@ -99,6 +101,25 @@ export class Session {
     this._pingInterval = setInterval(() => {
       this._sendPingToAllClients();
     }, PING_INTERVAL);
+
+    // Disconnect detection
+    this._disconnectDetectionInterval = setInterval(() => {
+      const now = Date.now();
+
+      for (const sessionClient of Object.values(this._state.clients)) {
+        const lastPongAt = this._lastPongTimes.get(sessionClient.id);
+        if (!lastPongAt) {
+          continue;
+        }
+
+        const disconnectedAt = now - lastPongAt;
+        if (disconnectedAt < PING_INTERVAL) {
+          continue;
+        }
+
+        sessionClient.disconnectedAt = now;
+      }
+    }, 1000);
   }
 
   get id() {
@@ -115,8 +136,12 @@ export class Session {
 
     const [type, payload] = data;
 
+    console.log(`[Session] Received "${type}" from client "${clientSessionToken}" ...`);
+
     if (type === SessionTypeEnum.PONG) {
       this.onPongMessage(clientSessionToken);
+    } else if (type === SessionTypeEnum.LEAVE) {
+      this.onLeaveMessage(clientSessionToken);
     }
   }
 
@@ -146,32 +171,47 @@ export class Session {
     const lastPingAt = this._lastPingTimes.get(sessionClient.id);
     const ping = lastPingAt ? pongAt - lastPingAt : 0;
 
+    sessionClient.disconnectedAt = 0;
     sessionClient.ping = ping > PING_INTERVAL ? PING_INTERVAL : ping;
 
     this._state.clients[sessionClient.id] = sessionClient;
   }
 
+  onLeaveMessage(clientSessionToken: string) {
+    const sessionClient = this.getClient(clientSessionToken);
+    if (!sessionClient) {
+      console.log(
+        `[Session] Client with token "${clientSessionToken}" not found in session "${this.id}"`
+      );
+
+      return;
+    }
+
+    this.removeClient(clientSessionToken);
+  }
+
   // Termination
   terminate(
-    code: SessionWebSocketCloseCodeEnum = SessionWebSocketCloseCodeEnum.SESSION_TERMINATED,
+    code: SessionWebSocketCloseCodeEnum = SessionWebSocketCloseCodeEnum.TERMINATED,
     reason: string = 'Session terminated'
   ) {
     console.log(`[Session] Session "${this._state.id}" terminating ...`);
 
     const clients = Object.values(this._state.clients);
     for (const client of clients) {
-      sessionManager.terminateClient(client.clientSessionToken, code, reason);
+      sessionManager.closeClientConnection(client.id, code, reason);
     }
 
     clearInterval(this._stateUpdateInterval);
     clearInterval(this._pingInterval);
+    clearInterval(this._disconnectDetectionInterval);
 
-    this._terminatedCallback?.();
+    this._onTerminatedCallback?.();
   }
 
   // Registered callback in SessionManager so it knows when to remove the session from the map
-  registerTerminaltedCallback(terminatedCallback: () => void) {
-    this._terminatedCallback = terminatedCallback;
+  onTerminated(callback: () => void) {
+    this._onTerminatedCallback = callback;
   }
 
   // State
@@ -243,6 +283,9 @@ export class Session {
       });
     }
 
+    // We want to know immediately what the ping is, as in the worst case it takes 2 seconds
+    this._sendPingToClient(sessionClient.id);
+
     return sessionClient;
   }
 
@@ -268,7 +311,7 @@ export class Session {
 
     if (clientWasHost) {
       this.terminate(
-        SessionWebSocketCloseCodeEnum.SESSION_HOST_CLIENT_DISCONNECTED,
+        SessionWebSocketCloseCodeEnum.HOST_CLIENT_DISCONNECTED,
         'Session host client disconnected'
       );
     }
@@ -320,15 +363,23 @@ export class Session {
 
   // Private
   private _sendPingToAllClients() {
-    const now = Date.now();
-    const id = generateRandomHash(4);
     for (const sessionClient of Object.values(this._state.clients)) {
-      this._lastPingTimes.set(sessionClient.id, now);
-
-      this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
-        id,
-      });
+      this._sendPingToClient(sessionClient.id);
     }
+  }
+
+  private _sendPingToClient(
+    sessionClientId: string,
+    now: number = Date.now(),
+    id: string = generateRandomHash(4)
+  ) {
+    const sessionClient = this._state.clients[sessionClientId];
+
+    this._lastPingTimes.set(sessionClient.id, now);
+
+    this.sendToSessionClient(sessionClient.id, SessionTypeEnum.PING, {
+      id,
+    });
   }
 
   private deepClone<T>(value: T): T {

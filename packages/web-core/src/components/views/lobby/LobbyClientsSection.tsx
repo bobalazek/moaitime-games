@@ -35,7 +35,12 @@ export function LobbyClientsSection() {
                   <span>{client.displayName}</span>
                   {isClientHost && <span>📺</span>}
                   {isClientController && <span>🎮</span>}
-                  <span className="absolute right-0 top-0 flex h-6 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-black">
+                  <span
+                    className={cn(
+                      'absolute right-0 top-0 flex h-6 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-black',
+                      client.disconnectedAt && 'bg-red-800 text-white'
+                    )}
+                  >
                     {client.ping}
                   </span>
                 </div>

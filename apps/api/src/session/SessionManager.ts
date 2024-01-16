@@ -11,7 +11,6 @@ export type SessionManagerJoinSessionOptions = {
 
 const GARBAGE_COLLECTION_INTERVAL = 5000;
 const ISSUED_TOKEN_LIFETIME = 10000;
-const STALE_WEB_SOCKET_LIFETIME = 30000;
 
 export class SessionManager {
   // The map of all active sessions
@@ -22,9 +21,6 @@ export class SessionManager {
 
   // A map of all the current websocket connections
   private _clientsMap: Map<string, WebSocket> = new Map();
-
-  // A map of all the current websocket connections and their last activity
-  private _clientsLastActivityMap: Map<string, number> = new Map();
 
   // The issued session tokens that are needed when joining a session
   private _clientSessionTokensMap: Map<
@@ -49,20 +45,6 @@ export class SessionManager {
           console.log(`[SessionManager] Client "${clientSessionToken}" token expired`);
 
           this._clientSessionTokensMap.delete(clientSessionToken);
-        }
-      }
-
-      for (const [clientSessionToken, lastActivityAt] of this._clientsLastActivityMap) {
-        if (now - lastActivityAt > STALE_WEB_SOCKET_LIFETIME) {
-          console.log(`[SessionManager] Client "${clientSessionToken}" timed out`);
-
-          sessionManager.onClose(clientSessionToken);
-
-          this.terminateClient(
-            clientSessionToken,
-            SessionWebSocketCloseCodeEnum.SESSION_CLIENT_TIMEOUT,
-            'Client timed out'
-          );
         }
       }
     }, GARBAGE_COLLECTION_INTERVAL);
@@ -91,7 +73,6 @@ export class SessionManager {
     const redeemedTokenData = this.redeemSessionToken(sessionToken);
 
     this._clientsMap.set(sessionToken, client);
-    this._clientsLastActivityMap.set(sessionToken, Date.now());
 
     this.joinSession(sessionId, sessionToken, redeemedTokenData);
 
@@ -109,8 +90,6 @@ export class SessionManager {
     if (!session) {
       return;
     }
-
-    this._clientsLastActivityMap.set(clientSessionToken, Date.now());
 
     session.onMessage(clientSessionToken, message);
   }
@@ -184,7 +163,7 @@ export class SessionManager {
 
     const session = new Session(id, accessCode);
 
-    session.registerTerminaltedCallback(() => {
+    session.onTerminated(() => {
       console.log(`[SessionManager] Session "${id}" terminated`);
 
       this._sessionMap.delete(id);
@@ -245,7 +224,7 @@ export class SessionManager {
     return this._clientsMap.get(clientSessionToken) ?? null;
   }
 
-  terminateClient(clientSessionToken: string, code: number, reason?: string) {
+  closeClientConnection(clientSessionToken: string, code: number, reason?: string) {
     if (!this._clientsMap.has(clientSessionToken)) {
       return;
     }
@@ -257,7 +236,6 @@ export class SessionManager {
     }
 
     this._clientsMap.delete(clientSessionToken);
-    this._clientsLastActivityMap.delete(clientSessionToken);
     this._clientSessionTokenToSessionIdCacheMap.delete(clientSessionToken);
   }
 }

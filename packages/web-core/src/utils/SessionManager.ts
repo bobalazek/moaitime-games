@@ -8,6 +8,7 @@ import {
   SessionControllerCommandEnum,
   SessionInterface,
   SessionTypeEnum,
+  SessionWebSocketCloseCodeEnum,
   SessionWebSocketMessage,
   WS_URL,
 } from '@moaitime-games/shared-common';
@@ -68,6 +69,18 @@ export class SessionManager {
     await this.joinSession(response.sessionAccessCode);
 
     return response.sessionId;
+  }
+
+  async leaveSession(consented: boolean = true): Promise<void> {
+    if (!this._webSocketClient) {
+      throw new Error('WebSocket connection not established');
+    }
+
+    if (consented) {
+      this.send(SessionTypeEnum.LEAVE);
+    } else {
+      this._webSocketClient.close();
+    }
   }
 
   // Send
@@ -144,6 +157,10 @@ export class SessionManager {
         resetSession();
 
         this._webSocketClient = undefined;
+
+        if (event.code === SessionWebSocketCloseCodeEnum.CLIENT_CONSENTED_LEAVE) {
+          return;
+        }
 
         toast.error(
           event.reason || 'Connection to server lost. Please refresh the page to reconnect.'
