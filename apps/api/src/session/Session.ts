@@ -1,3 +1,5 @@
+import rfdc from 'rfdc';
+
 import {
   DevicePlatformEnum,
   DeviceTypeEnum,
@@ -16,6 +18,8 @@ import { sessionManager } from './SessionManager';
 const PING_INTERVAL = 2000;
 const DISCONNECT_INTERVAL = 1000;
 const STATE_UPDATE_FPS = 30;
+
+const clone = rfdc();
 
 export class Session {
   private _state: SessionInterface;
@@ -416,6 +420,6 @@ export class Session {
   }
 
   private deepClone<T>(value: T): T {
-    return JSON.parse(JSON.stringify(value));
+    return clone(value);
   }
 }
